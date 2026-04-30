@@ -1,3 +1,40 @@
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+<script>
+const supabaseUrl = "YOUR_URL";
+const supabaseKey = "YOUR_KEY";
+
+const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+
+// إضافة بيانات
+async function addData(name) {
+  await supabaseClient.from("sharedData").insert([{ name }]);
+}
+
+// قراءة البيانات
+async function loadData() {
+  const { data } = await supabaseClient
+    .from("sharedData")
+    .select("*")
+    .order("created_at");
+
+  console.log(data);
+}
+
+// التزامن المباشر 🔥
+supabaseClient
+  .channel("realtime")
+  .on(
+    "postgres_changes",
+    { event: "*", schema: "public", table: "sharedData" },
+    () => {
+      loadData();
+    }
+  )
+  .subscribe();
+
+loadData();
+</script>
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
