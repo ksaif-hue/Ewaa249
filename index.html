@@ -1,49 +1,305 @@
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-
-<script>
-const supabaseUrl = sb_publishable_Uq6nC3GIvd_hyObIW_A1dg_5vW9ZhZt;
-const supabaseKey = sb_secret_r0uFMxHDBOvu5K5hqGNBhw_AFCjflDr;
-
-const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
-
-// إضافة بيانات
-async function addData(name) {
-  await supabaseClient.from("sharedData").insert([{ name }]);
-}
-
-// قراءة البيانات
-async function loadData() {
-  const { data } = await supabaseClient
-    .from("sharedData")
-    .select("*")
-    .order("created_at");
-
-  console.log(data);
-}
-
-// التزامن المباشر 🔥
-supabaseClient
-  .channel("realtime")
-  .on(
-    "postgres_changes",
-    { event: "*", schema: "public", table: "sharedData" },
-    () => {
-      loadData();
-    }
-  )
-  .subscribe();
-
-loadData();
-</script>
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>نظام إخلاء مدرسة حصة بنت محمد</title>
+<meta http-equiv="Content-Security-Policy" content="frame-ancestors *;">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="إخلاء حصة">
+<meta name="theme-color" content="#185FA5">
+<meta name="description" content="نظام إخلاء المبنى - مدرسة حصة بنت محمد - فريق الأمن والسلامة">
+<meta name="robots" content="noindex, nofollow">
+<title>نظام إخلاء - مدرسة حصة بنت محمد</title>
+<link rel="manifest" href="data:application/json,{%22name%22:%22%D9%86%D8%B8%D8%A7%D9%85%20%D8%A5%D8%AE%D9%84%D8%A7%D8%A1%20%D9%85%D8%AF%D8%B1%D8%B3%D8%A9%20%D8%AD%D8%B5%D8%A9%22,%22short_name%22:%22%D8%A5%D8%AE%D9%84%D8%A7%D8%A1%22,%22display%22:%22standalone%22,%22background_color%22:%22%23f0f2f5%22,%22theme_color%22:%22%23185FA5%22}">
+<!-- Firebase SDK (compat v10) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+// ════════════════════════════════════════
+// BUS SUPERVISORS MODULE
+// ════════════════════════════════════════
+var BUS_SUPERVISORS = [
+  'أمل الحساني',
+  'أحلام جمعة العلوي',
+  'أميرة دميثال الشامسي',
+  'ندا سمير',
+  'أسماء عبد اللطيف',
+  'حصة محمد الكعبي',
+  'آمال مصبح الشامسي',
+  'عفراء نفد الله',
+  'نعمه',
+  'إيمان خليفة الشامسي',
+  'تقوى حامد عمر',
+  'انشراح حسن سيد محمد',
+  'هدى سعيد الشامسي'
+];
+
+// ── Bus Supervisors ───────────────────────────────────────────────────────
+
+
+// present = object of names who are present: { name: { by, at } }
+var busState = {present:{}};
+
+function saveBus(){
+  // localStorage as backup only
+  try{ localStorage.setItem('hessa_bus_v1', JSON.stringify(busState)); }catch(e){}
+  if(syncEnabled && db){
+    db.ref('hessa_school/bus').set({
+      present: busState.present || {},
+      lastUpdated: Date.now(),
+      updatedBy: currentUser || 'غير معروف'
+    }).then(function(){ showSyncStatus('synced'); })
+      .catch(function(e){ console.warn('Bus save error:', e); showSyncStatus('error'); });
+  }
+}
+
+function loadBus(){
+  // Firebase listener handles real-time updates; localStorage is fallback only
+  try{
+    var d = localStorage.getItem('hessa_bus_v1');
+    if(d){
+      var parsed = JSON.parse(d);
+      if(Array.isArray(parsed.present)){
+        var obj={};
+        parsed.present.forEach(function(n){ obj[n]={by:'',at:0}; });
+        parsed.present = obj;
+      }
+      busState = parsed;
+    }
+    if(!busState.present) busState.present = {};
+  }catch(e){ busState = {present:{}}; }
+}
+
+function toggleBusPresent(name){
+  if(!currentUser){ showLoginModal(); return; }
+  if(!busState.present) busState.present = {};
+  var now = Date.now();
+  if(busState.present[name]){
+    // Use Firebase transaction for conflict-safe delete
+    if(syncEnabled && db){
+      db.ref('hessa_school/bus/present/' + encodeFirebaseKey(name)).remove()
+        .then(function(){
+          auditLog('bus_absent', name);
+          db.ref('hessa_school/bus').update({ lastUpdated: now, updatedBy: currentUser });
+        })
+        .catch(function(e){ console.warn('Bus remove error:', e); });
+    } else {
+      delete busState.present[name];
+      auditLog('bus_absent', name);
+      saveBus();
+      renderBusList();
+    }
+  } else {
+    var entry = {by: currentUser, at: now};
+    if(syncEnabled && db){
+      db.ref('hessa_school/bus/present/' + encodeFirebaseKey(name)).set(entry)
+        .then(function(){
+          auditLog('bus_present', name);
+          db.ref('hessa_school/bus').update({ lastUpdated: now, updatedBy: currentUser });
+        })
+        .catch(function(e){ console.warn('Bus set error:', e); });
+    } else {
+      busState.present[name] = entry;
+      auditLog('bus_present', name);
+      saveBus();
+      renderBusList();
+    }
+  }
+}
+
+function renderBusStats(){
+  var p = busState.present ? Object.keys(busState.present).length : 0;
+  var a = BUS_SUPERVISORS.length - p;
+  var total = document.getElementById('bus-total');
+  var presEl = document.getElementById('bus-present');
+  var absEl = document.getElementById('bus-absent');
+  if(total) total.textContent = BUS_SUPERVISORS.length;
+  if(presEl) presEl.textContent = p;
+  if(absEl) absEl.textContent = a;
+  var banner = document.getElementById('bus-done-banner');
+  if(banner) banner.style.display = (p >= BUS_SUPERVISORS.length) ? 'block' : 'none';
+}
+
+function renderBusList(){
+  var list = document.getElementById('bus-list');
+  if(!list) return;
+  list.innerHTML = '';
+  BUS_SUPERVISORS.forEach(function(name, idx){
+    var entry = busState.present && busState.present[name];
+    var isPresent = !!entry;
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:10px;border:1.5px solid;cursor:pointer;transition:all 0.15s;min-height:48px;' +
+      (isPresent
+        ? 'background:#EAF3DE;border-color:#3B6D11;'
+        : 'background:#FCEBEB;border-color:#e0b0b0;');
+    row.setAttribute('data-name', name);
+    row.addEventListener('click', function(){
+      toggleBusPresent(this.getAttribute('data-name'));
+    });
+    var left = document.createElement('div');
+    left.style.cssText = 'display:flex;align-items:center;gap:10px;flex:1;min-width:0';
+    var num = document.createElement('span');
+    num.style.cssText = 'font-size:11px;color:#aaa;min-width:18px;flex-shrink:0';
+    num.textContent = idx + 1;
+    var nameEl = document.createElement('span');
+    nameEl.style.cssText = 'font-size:13px;font-weight:700;color:' + (isPresent ? '#27500A' : '#A32D2D');
+    nameEl.textContent = name;
+    var byEl = document.createElement('span');
+    byEl.style.cssText = 'font-size:10px;color:#888;margin-right:6px;white-space:nowrap';
+    if(entry && entry.by){
+      byEl.textContent = 'سجّلت: ' + entry.by + ' ' + fmtTime(entry.at);
+    }
+    left.appendChild(num);
+    left.appendChild(nameEl);
+    left.appendChild(byEl);
+    var badge = document.createElement('span');
+    badge.style.cssText = 'font-size:18px;font-weight:700;color:' + (isPresent ? '#27500A' : '#A32D2D') + ';flex-shrink:0';
+    badge.textContent = isPresent ? '✓' : '✗';
+    row.appendChild(left);
+    row.appendChild(badge);
+    list.appendChild(row);
+  });
+  renderBusStats();
+  // Update last-updated footer
+  var footer = document.getElementById('bus-last-updated');
+  if(footer && busState.lastUpdated){
+    footer.textContent = 'آخر تحديث: ' + (busState.updatedBy||'') + ' — ' + fmtTime(busState.lastUpdated);
+  }
+}
+
+function resetBus(){
+  if(!currentUser){ showLoginModal(); return; }
+  var modal = document.getElementById('confirm-modal');
+  document.getElementById('modal-msg').textContent = 'إعادة تعيين كشف مشرفات الباص؟';
+  modal.style.display = 'flex';
+  modal._busReset = true;
+}
+
+function printBusReport(){
+  var now = new Date();
+  var dateStr = now.toLocaleDateString('ar',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  var timeStr = now.toLocaleTimeString('ar',{hour:'2-digit',minute:'2-digit'});
+  var p = busState.present ? Object.keys(busState.present).length : 0;
+  var a = BUS_SUPERVISORS.length - p;
+  var rows = '';
+  BUS_SUPERVISORS.forEach(function(name, i){
+    var isP = !!(busState.present && busState.present[name]);
+    var status = isP
+      ? '<span style="color:#27500A;font-weight:700">&#10003; حاضرة</span>'
+      : '<span style="color:#A32D2D;font-weight:700">&#10005; غائبة</span>';
+    var bg = isP ? '' : 'background:#FFF5F5';
+    rows += '<tr style="'+bg+'"><td style="padding:8px;border-bottom:1px solid #eee;color:#888">'+(i+1)+'</td>' +
+      '<td style="padding:8px;border-bottom:1px solid #eee;font-weight:600">'+name+'</td>' +
+      '<td style="padding:8px;border-bottom:1px solid #eee;text-align:center">'+status+'</td></tr>';
+  });
+  var reportHTML =
+    '<div style="text-align:center;border-bottom:2px solid #854F0B;padding-bottom:12px;margin-bottom:16px">' +
+    '<div style="font-size:18px;font-weight:700;color:#854F0B">مدرسة حصة بنت محمد ح2</div>' +
+    '<div style="font-size:14px;font-weight:700;margin:4px 0">كشف مشرفات الباص - وقت الإخلاء</div>' +
+    '<div style="font-size:11px;color:#888">'+dateStr+' | '+timeStr+'</div></div>' +
+    '<div style="display:flex;gap:10px;margin-bottom:14px">' +
+    '<div style="flex:1;border:1px solid #ddd;border-radius:8px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:700;color:#185FA5">'+BUS_SUPERVISORS.length+'</div><div style="font-size:10px;color:#888">الإجمالي</div></div>' +
+    '<div style="flex:1;border:1px solid #ddd;border-radius:8px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:700;color:#27500A">'+p+'</div><div style="font-size:10px;color:#888">حاضرات</div></div>' +
+    '<div style="flex:1;border:1px solid #ddd;border-radius:8px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:700;color:#A32D2D">'+a+'</div><div style="font-size:10px;color:#888">غائبات</div></div>' +
+    '</div>' +
+    '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
+    '<thead><tr><th style="background:#854F0B;color:#fff;padding:8px;text-align:right">#</th>' +
+    '<th style="background:#854F0B;color:#fff;padding:8px;text-align:right">اسم المشرفة</th>' +
+    '<th style="background:#854F0B;color:#fff;padding:8px;text-align:center">الحالة</th></tr></thead>' +
+    '<tbody>'+rows+'</tbody></table>' +
+    '<div style="margin-top:16px;text-align:center;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:10px">فريق الأمن والسلامة - مدرسة حصة بنت محمد</div>';
+
+  document.getElementById('report-content').innerHTML = reportHTML;
+  document.getElementById('print-modal').style.display = 'flex';
+}
+
+loadBus();
+// busState migration done inside loadBus()
+
+
+// ── Students counter ──────────────────────────────────────────────────────
+var studentsInitialized = false;
+
+// Debounce timer for students Firebase save
+var _studentSaveTimer = {};
+
+function checkStudentClass(col){
+  if(!col) return;
+  var total = parseInt(col.getAttribute('data-total'));
+  var absInp = col.querySelector('.abs-inp');
+  var prsInp = col.querySelector('.prs-inp');
+  var status = col.querySelector('.cls-status');
+  if(!absInp || !prsInp || !status) return;
+  var absVal = absInp.value !== '' ? parseInt(absInp.value) : null;
+  var prsVal = prsInp.value !== '' ? parseInt(prsInp.value) : null;
+  if(absVal !== null && prsVal !== null){
+    var sum = absVal + prsVal;
+    if(sum === total){
+      status.textContent = 'اكتمل ✓';
+      status.style.cssText = 'background:#EAF3DE;color:#27500A;border:2px solid #3B6D11;border-radius:6px;padding:3px 0;font-size:11px;font-weight:700;text-align:center;width:100%';
+    } else if(sum > total){
+      status.textContent = 'تجاوز (' + sum + ')';
+      status.style.cssText = 'background:#FCEBEB;color:#A32D2D;border:2px solid #F7C1C1;border-radius:6px;padding:3px 0;font-size:11px;font-weight:700;text-align:center;width:100%';
+    } else {
+      status.textContent = sum + ' / ' + total;
+      status.style.cssText = 'background:#FAEEDA;color:#854F0B;border:2px solid #EF9F27;border-radius:6px;padding:3px 0;font-size:11px;font-weight:700;text-align:center;width:100%';
+    }
+  } else {
+    status.textContent = 'لم يكتمل';
+    status.style.cssText = 'background:#f5f5f5;color:#aaa;border:1px solid #ddd;border-radius:6px;padding:3px 0;font-size:10px;font-weight:700;text-align:center;width:100%';
+  }
+  checkAllStudentsDone();
+  // Debounced Firebase save (500ms after last keystroke)
+  var colKey = col.getAttribute('data-grade') + '_' + col.getAttribute('data-sec');
+  if(_studentSaveTimer[colKey]) clearTimeout(_studentSaveTimer[colKey]);
+  _studentSaveTimer[colKey] = setTimeout(function(){ saveStudentClass(col); }, 500);
+}
+
+function checkAllStudentsDone(){
+  var cols = document.querySelectorAll('.cls-col');
+  if(!cols.length) return;
+  var allDone = true;
+  cols.forEach(function(col){
+    var total = parseInt(col.getAttribute('data-total'));
+    var absInp = col.querySelector('.abs-inp');
+    var prsInp = col.querySelector('.prs-inp');
+    var absVal = absInp && absInp.value !== '' ? parseInt(absInp.value) : null;
+    var prsVal = prsInp && prsInp.value !== '' ? parseInt(prsInp.value) : null;
+    if(absVal === null || prsVal === null || absVal + prsVal !== total) allDone = false;
+  });
+  var banner = document.getElementById('students-result');
+  if(banner) banner.style.display = allDone ? 'block' : 'none';
+}
+
+function clearStudents(){
+  document.querySelectorAll('.abs-inp,.prs-inp').forEach(function(inp){ inp.value = ''; });
+  document.querySelectorAll('.cls-status').forEach(function(el){
+    el.textContent = 'لم يكتمل';
+    el.style.cssText = 'background:#f5f5f5;color:#aaa;border:1px solid #ddd;border-radius:6px;padding:3px 0;font-size:10px;font-weight:700;text-align:center;width:100%';
+  });
+  var banner = document.getElementById('students-result');
+  if(banner) banner.style.display = 'none';
+}
+
+function initStudentsListeners(){
+  // Initialize status display only (no event listeners - using oninput in HTML)
+  if(studentsInitialized) return;
+  studentsInitialized = true;
+  document.querySelectorAll('.cls-status').forEach(function(el){
+    el.textContent = 'لم يكتمل';
+    el.style.cssText = 'background:#f5f5f5;color:#aaa;border:1px solid #ddd;border-radius:6px;padding:3px 0;font-size:10px;font-weight:700;text-align:center;width:100%';
+  });
+}
+
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;background:#f0f2f5;direction:rtl}
+body{font-family:Arial,sans-serif;background:#f0f2f5;direction:rtl;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+button,select,input{-webkit-appearance:none;appearance:none;font-family:Arial,sans-serif}
+button{touch-action:manipulation}
+img{-webkit-user-drag:none;user-select:none}
 .container{max-width:860px;margin:0 auto;padding:12px}
 .hdr{background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:12px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .ht{font-size:15px;font-weight:700;color:#1a1a1a}
@@ -60,10 +316,10 @@ body{font-family:Arial,sans-serif;background:#f0f2f5;direction:rtl}
 .prog{height:5px;background:#e0e0e0;border-radius:3px;overflow:hidden;margin-bottom:10px}
 .pf{height:100%;border-radius:3px;transition:width 0.4s;background:#A32D2D}
 .tabs{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap}
-.tab{padding:7px 13px;border:1px solid #ccc;border-radius:8px;font-size:12px;cursor:pointer;background:#fff;color:#333}
+.tab{padding:8px 13px;border:1px solid #ccc;border-radius:8px;font-size:12px;cursor:pointer;background:#fff;color:#333;min-height:40px}
 .tab.on{background:#185FA5;color:#fff;border-color:#185FA5}
 .floor-btns{display:flex;gap:6px;margin-bottom:8px}
-.fb{padding:7px 16px;border:1px solid #ccc;border-radius:8px;font-size:12px;cursor:pointer;background:#fff;color:#333}
+.fb{padding:8px 16px;border:1px solid #ccc;border-radius:8px;font-size:12px;cursor:pointer;background:#fff;color:#333;min-height:40px}
 .fb.on{background:#185FA5;color:#fff;border-color:#185FA5}
 .map-container{position:relative;border:1px solid #ddd;border-radius:10px;overflow:visible;margin-bottom:10px;background:#fafafa}
 .map-container img{width:100%;height:auto;display:block;border-radius:10px}
@@ -91,22 +347,48 @@ input[type=text]{border:1px solid #ccc;border-radius:8px;padding:7px 10px;font-s
 .all-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f0f0f0;font-size:12px}
 .all-row:last-child{border-bottom:none}
 @keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.cls-col{display:flex;flex-direction:column;align-items:center;gap:4px;padding:0 3px}
+.cls-name{font-size:11px;font-weight:700;color:#333;text-align:center}
+.cls-total{font-size:13px;font-weight:700;color:#185FA5;margin-bottom:2px}
+.abs-inp,.prs-inp{width:100%;border:1.5px solid #ccc;border-radius:6px;padding:5px 4px;font-size:12px;text-align:center;background:#fff;font-family:Arial;-webkit-appearance:none;appearance:none;box-sizing:border-box}
+.abs-inp{border-color:#F7C1C1;color:#A32D2D}
+.abs-inp::placeholder{color:#F7C1C1;font-size:10px}
+.prs-inp{border-color:#9FE1CB;color:#27500A}
+.prs-inp::placeholder{color:#9FE1CB;font-size:10px}
+.abs-lbl{font-size:9px;color:#A32D2D;font-weight:600}
+.prs-lbl{font-size:9px;color:#27500A;font-weight:600}
+.cls-status{min-height:22px;width:100%;text-align:center;font-size:10px;font-weight:700;border-radius:6px;display:flex;align-items:center;justify-content:center}
+.cls-done{background:#EAF3DE;color:#27500A;border:1px solid #3B6D11}
+.cls-notdone{background:#f5f5f5;color:#aaa}
+.tc.present{cursor:pointer}
+.user-badge{font-size:10px;background:#E6F1FB;color:#0C447C;border:1px solid #85B7EB;border-radius:8px;padding:2px 8px;font-weight:700}
 </style>
+<script>window.onerror=function(){return true;};</script>
 </head>
 <body>
 <div class="container">
+<div id="install-hint" style="background:#E6F1FB;border:1px solid #85B7EB;border-radius:8px;padding:9px 14px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#0C447C">
+  <span>&#128241; أضف الملف للشاشة الرئيسية لاستخدامه بدون انترنت</span>
+  <button onclick="this.parentElement.style.display='none'" style="background:none;border:none;color:#0C447C;font-size:16px;cursor:pointer;padding:0 0 0 6px">&#10005;</button>
+</div>
 <div class="hdr">
   <div>
     <div class="ht">مدرسة حصة بنت محمد ح2</div>
     <div class="hs">نظام إخلاء المبنى &mdash; فريق الأمن والسلامة</div>
+    <div style="font-size:10px;color:#aaa;margin-top:2px">تصميم: خديجة سيف اليحيائي &nbsp;|&nbsp; <span id="sync-status">🔴 غير متزامن</span> &nbsp;<span id="last-sync-time" style="color:#aaa;font-size:9px"></span></div>
+    <span id="current-user-badge" style="display:none;font-size:10px;background:#E6F1FB;color:#0C447C;border:1px solid #85B7EB;border-radius:8px;padding:2px 8px;margin-top:3px;font-weight:700"></span>
+    <div id="online-users" style="display:none;font-size:9px;color:#27500A;background:#EAF3DE;border-radius:6px;padding:2px 8px;margin-top:2px;border:1px solid #9FE1CB"></div>
   </div>
-  <span id="mb" class="bdg bd">جارٍ الإخلاء</span>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+    <span id="mb" class="bdg bd">جارٍ الإخلاء</span>
+    <button onclick="downloadPdfReport()" style="background:#185FA5;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">&#128462; تحميل التقرير PDF</button>
+  </div>
 </div>
 
 <div class="stats">
-  <div class="stat"><div class="sn nb" id="st">57</div><div class="sl">إجمالي الموظفات</div></div>
+  <div class="stat"><div class="sn nb" id="st">59</div><div class="sl">إجمالي الموظفات</div></div>
   <div class="stat"><div class="sn ng" id="sp">0</div><div class="sl">تم رصدهن</div></div>
-  <div class="stat"><div class="sn nr" id="sm">57</div><div class="sl">لم يُرصدن</div></div>
+  <div class="stat"><div class="sn nr" id="sm">59</div><div class="sl">لم يُرصدن</div></div>
   <div class="stat"><div class="sn na" id="sa">0</div><div class="sl">غائبات اليوم</div></div>
 </div>
 <div class="prog"><div class="pf" id="pf" style="width:0%"></div></div>
@@ -116,7 +398,9 @@ input[type=text]{border:1px solid #ccc;border-radius:8px;padding:7px 10px;font-s
   <button class="tab" onclick="setView('all')">جميع الموظفات</button>
   <button class="tab" onclick="setView('absent')">الغائبات</button>
   <button class="tab" onclick="setView('reset')">إعادة تعيين</button>
-  <button class="tab" onclick="printReport()" style="background:#185FA5;color:#fff;border-color:#185FA5">&#128438; طباعة التقرير</button>
+  <button class="tab" onclick="setView('bus')" style="background:#854F0B;color:#fff;border-color:#854F0B">&#128652; مشرفات الباص</button>
+  <button class="tab" onclick="setView('students')" style="background:#7B1FA2;color:#fff;border-color:#7B1FA2">&#127891; الطالبات</button>
+  <button class="tab" onclick="setView('audit')" style="background:#37474F;color:#fff;border-color:#37474F">&#128203; سجل العمليات</button>
 </div>
 
 <div id="v-map">
@@ -161,14 +445,262 @@ input[type=text]{border:1px solid #ccc;border-radius:8px;padding:7px 10px;font-s
   </div>
 </div>
 
+<div id="v-bus" style="display:none">
+  <div style="background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:#1a1a1a">مشرفات الباص</div>
+        <div style="font-size:11px;color:#888;margin-top:2px">اضغطي على اسم المشرفة لتسجيل حضورها</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="resetBus()" style="background:#FCEBEB;color:#A32D2D;border:1px solid #F7C1C1;border-radius:8px;padding:7px 12px;font-size:11px;cursor:pointer;min-height:36px">إعادة تعيين</button>
+        <button onclick="printBusReport()" style="background:#185FA5;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:11px;cursor:pointer;min-height:36px">&#128438; طباعة</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+      <div style="background:#E6F1FB;border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:#185FA5" id="bus-total">13</div>
+        <div style="font-size:10px;color:#888">الإجمالي</div>
+      </div>
+      <div style="background:#EAF3DE;border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:#27500A" id="bus-present">0</div>
+        <div style="font-size:10px;color:#888">حاضرات ✓</div>
+      </div>
+      <div style="background:#FCEBEB;border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:#A32D2D" id="bus-absent">13</div>
+        <div style="font-size:10px;color:#888">غائبات ✗</div>
+      </div>
+    </div>
+
+    <!-- Completion banner -->
+    <div id="bus-done-banner" style="display:none;background:#EAF3DE;border:2px solid #3B6D11;border-radius:10px;padding:12px 16px;margin-bottom:12px;text-align:center;animation:fadeIn 0.4s ease">
+      <div style="font-size:24px">&#10003;</div>
+      <div style="font-size:14px;font-weight:700;color:#27500A">تم تسجيل جميع مشرفات الباص!</div>
+    </div>
+
+    <!-- Legend -->
+    <div style="display:flex;gap:12px;font-size:11px;color:#888;margin-bottom:10px;flex-wrap:wrap">
+      <span><span style="display:inline-block;width:12px;height:12px;background:#EAF3DE;border:1.5px solid #3B6D11;border-radius:3px;vertical-align:middle;margin-left:4px"></span>حاضرة - اضغط مرة أخرى للإلغاء</span>
+      <span><span style="display:inline-block;width:12px;height:12px;background:#FCEBEB;border:1.5px solid #ccc;border-radius:3px;vertical-align:middle;margin-left:4px"></span>غائبة (افتراضي)</span>
+    </div>
+
+    <!-- Names grid -->
+    <div id="bus-list" style="display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+</div>
+
+
+<div id="v-students" style="display:none">
+<div style="background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:10px;direction:rtl">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <div>
+      <div style="font-size:15px;font-weight:700;color:#1a1a1a">حصر طالبات المدرسة</div>
+      <div style="font-size:11px;color:#888;margin-top:2px">أدخلي عدد الغياب والحضور لكل شعبة</div>
+    </div>
+    <button onclick="clearStudents()" style="background:#FCEBEB;color:#A32D2D;border:1px solid #F7C1C1;border-radius:8px;padding:7px 12px;font-size:11px;cursor:pointer;min-height:36px" onclick="clearStudents()">مسح البيانات</button>
+  </div>
+
+  <!-- Grade 5 -->
+  <div style="border:2px solid #AB47BC;border-radius:10px;margin-bottom:12px;overflow:hidden">
+    <div style="background:#AB47BC;color:#fff;text-align:center;padding:8px;font-size:14px;font-weight:700">الصف الخامس</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;padding:10px 8px 6px">
+      <div class="cls-col" data-grade="5" data-sec="1" data-total="24"><div class="cls-name">G5-1</div><div class="cls-total">24</div><input class="abs-inp" placeholder="غياب" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><input class="prs-inp" placeholder="حضور" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><div class="cls-status"></div></div>
+      <div class="cls-col" data-grade="5" data-sec="2" data-total="22"><div class="cls-name">G5-2</div><div class="cls-total">22</div><input class="abs-inp" placeholder="غياب" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><input class="prs-inp" placeholder="حضور" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><div class="cls-status"></div></div>
+      <div class="cls-col" data-grade="5" data-sec="3" data-total="21"><div class="cls-name">G5-3</div><div class="cls-total">21</div><input class="abs-inp" placeholder="غياب" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><input class="prs-inp" placeholder="حضور" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><div class="cls-status"></div></div>
+      <div class="cls-col" data-grade="5" data-sec="4" data-total="23"><div class="cls-name">G5-4</div><div class="cls-total">23</div><input class="abs-inp" placeholder="غياب" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><input class="prs-inp" placeholder="حضور" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><div class="cls-status"></div></div>
+      <div class="cls-col" data-grade="5" data-sec="5" data-total="22"><div class="cls-name">G5-5</div><div class="cls-total">22</div><input class="abs-inp" placeholder="غياب" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><input class="prs-inp" placeholder="حضور" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><div class="cls-status"></div></div>
+    </div>
+  </div>
+
+  <!-- Grade 6 -->
+  <div style="border:2px solid #388E3C;border-radius:10px;margin-bottom:12px;overflow:hidden">
+    <div style="background:#388E3C;color:#fff;text-align:center;padding:8px;font-size:14px;font-weight:700">الصف السادس</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;padding:10px 8px 6px">
+      <div class="cls-col" data-grade="6" data-sec="1" data-total="21"><div class="cls-name">G6-1</div><div class="cls-total">21</div><input class="abs-inp" placeholder="غياب" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><input class="prs-inp" placeholder="حضور" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><div class="cls-status"></div></div>
+      <div class="cls-col" data-grade="6" data-sec="2" data-total="25"><div class="cls-name">G6-2</div><div class="cls-total">25</div><input class="abs-inp" placeholder="غياب" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><input class="prs-inp" placeholder="حضور" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><div class="cls-status"></div></div>
+      <div class="cls-col" data-grade="6" data-sec="3" data-total="23"><div class="cls-name">G6-3</div><div class="cls-total">23</div><input class="abs-inp" placeholder="غياب" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><input class="prs-inp" placeholder="حضور" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><div class="cls-status"></div></div>
+      <div class="cls-col" data-grade="6" data-sec="4" data-total="25"><div class="cls-name">G6-4</div><div class="cls-total">25</div><input class="abs-inp" placeholder="غياب" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><input class="prs-inp" placeholder="حضور" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><div class="cls-status"></div></div>
+      <div class="cls-col" data-grade="6" data-sec="5" data-total="24"><div class="cls-name">G6-5</div><div class="cls-total">24</div><input class="abs-inp" placeholder="غياب" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><input class="prs-inp" placeholder="حضور" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><div class="cls-status"></div></div>
+    </div>
+  </div>
+
+  <!-- Grade 7 -->
+  <div style="border:2px solid #1976D2;border-radius:10px;margin-bottom:12px;overflow:hidden">
+    <div style="background:#1976D2;color:#fff;text-align:center;padding:8px;font-size:14px;font-weight:700">الصف السابع</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;padding:10px 8px 6px">
+      <div class="cls-col" data-grade="7" data-sec="1" data-total="23"><div class="cls-name">G7-1</div><div class="cls-total">23</div><input class="abs-inp" placeholder="غياب" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><input class="prs-inp" placeholder="حضور" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><div class="cls-status"></div></div>
+      <div class="cls-col" data-grade="7" data-sec="2" data-total="23"><div class="cls-name">G7-2</div><div class="cls-total">23</div><input class="abs-inp" placeholder="غياب" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><input class="prs-inp" placeholder="حضور" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><div class="cls-status"></div></div>
+      <div class="cls-col" data-grade="7" data-sec="3" data-total="25"><div class="cls-name">G7-3</div><div class="cls-total">25</div><input class="abs-inp" placeholder="غياب" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><input class="prs-inp" placeholder="حضور" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><div class="cls-status"></div></div>
+      <div class="cls-col" data-grade="7" data-sec="4" data-total="22"><div class="cls-name">G7-4</div><div class="cls-total">22</div><input class="abs-inp" placeholder="غياب" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><input class="prs-inp" placeholder="حضور" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><div class="cls-status"></div></div>
+      <div class="cls-col" data-grade="7" data-sec="5" data-total="23"><div class="cls-name">G7-5</div><div class="cls-total">23</div><input class="abs-inp" placeholder="غياب" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><input class="prs-inp" placeholder="حضور" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><div class="cls-status"></div></div>
+    </div>
+  </div>
+
+  <!-- Grade 8 -->
+  <div style="border:2px solid #F9A825;border-radius:10px;margin-bottom:12px;overflow:hidden">
+    <div style="background:#F9A825;color:#1a1a1a;text-align:center;padding:8px;font-size:14px;font-weight:700">الصف الثامن</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;padding:10px 8px 6px">
+      <div class="cls-col" data-grade="8" data-sec="1" data-total="25"><div class="cls-name">G8-1</div><div class="cls-total">25</div><input class="abs-inp" placeholder="غياب" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><input class="prs-inp" placeholder="حضور" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><div class="cls-status"></div></div>
+      <div class="cls-col" data-grade="8" data-sec="2" data-total="24"><div class="cls-name">G8-2</div><div class="cls-total">24</div><input class="abs-inp" placeholder="غياب" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><input class="prs-inp" placeholder="حضور" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><div class="cls-status"></div></div>
+      <div class="cls-col" data-grade="8" data-sec="3" data-total="26"><div class="cls-name">G8-3</div><div class="cls-total">26</div><input class="abs-inp" placeholder="غياب" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><input class="prs-inp" placeholder="حضور" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><div class="cls-status"></div></div>
+      <div class="cls-col" data-grade="8" data-sec="4" data-total="23"><div class="cls-name">G8-4</div><div class="cls-total">23</div><input class="abs-inp" placeholder="غياب" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><input class="prs-inp" placeholder="حضور" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><div class="cls-status"></div></div>
+      <div class="cls-col" data-grade="8" data-sec="5" data-total="22"><div class="cls-name">G8-5</div><div class="cls-total">22</div><input class="abs-inp" placeholder="غياب" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><input class="prs-inp" placeholder="حضور" type="number" min="0" oninput="checkStudentClass(this.closest('.cls-col'))"><div class="cls-status"></div></div>
+    </div>
+  </div>
+
+  <!-- Students last updated -->
+  <div id="students-last-updated" style="font-size:10px;color:#888;text-align:center;margin-top:6px;padding:4px"></div>
+  <!-- Result banner -->
+  <div id="students-result" style="display:none;background:#EAF3DE;border:2px solid #3B6D11;border-radius:12px;padding:20px;text-align:center;margin-top:10px;animation:fadeIn 0.4s ease">
+    <div style="font-size:48px">&#128077;</div>
+    <div style="font-size:20px;font-weight:700;color:#27500A;margin-top:8px">تم إخلاء الطالبات بنجاح</div>
+    <div style="font-size:13px;color:#3B6D11;margin-top:4px">جميع الشعب اكتمل عددها</div>
+  </div>
+
+</div>
+</div>
+
 <div id="v-reset" style="display:none">
   <div class="panel">
     <div class="pt">إعادة تعيين الإخلاء</div>
     <div class="ps">يمسح بيانات التسجيل والغائبات فقط &mdash; قائمة الموظفات تبقى كما هي</div>
     <button class="btn btnd" style="width:100%;padding:10px;margin-top:8px;font-size:13px;font-weight:700" onclick="doReset()">إعادة تعيين الآن</button>
   </div>
+  <div class="panel" style="margin-top:10px">
+    <div class="pt">&#128438; طباعة التقرير الشامل</div>
+    <div class="ps">يطبع تقريراً شاملاً يتضمن: الموظفات ومناطق تواجدهن، مشرفات الباص، وإحصاء الطالبات حسب الشعبة</div>
+    <button onclick="printFullReport()" style="width:100%;padding:10px;margin-top:8px;background:#185FA5;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">&#128438; طباعة التقرير الشامل</button>
+  </div>
 </div>
 
+<!-- AUDIT LOG VIEW -->
+<div id="v-audit" style="display:none">
+  <div class="panel" style="padding:0">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #eee">
+      <div style="font-size:14px;font-weight:700;color:#37474F">&#128203; سجل العمليات</div>
+      <div style="display:flex;gap:6px">
+        <button onclick="loadAuditLog()" style="background:#E6F1FB;color:#185FA5;border:1px solid #85B7EB;border-radius:8px;padding:5px 10px;font-size:11px;cursor:pointer">&#8635; تحديث</button>
+        <button onclick="clearLocalAudit()" class="btn btnd" style="font-size:11px;padding:5px 10px">مسح المحلي</button>
+      </div>
+    </div>
+    <div id="audit-filter" style="padding:8px 14px;border-bottom:1px solid #eee;display:flex;gap:8px;flex-wrap:wrap">
+      <select id="audit-filter-user" onchange="renderAuditLog()" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid #ccc;min-width:120px">
+        <option value="">كل المستخدمين</option>
+      </select>
+      <select id="audit-filter-action" onchange="renderAuditLog()" style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid #ccc">
+        <option value="">كل العمليات</option>
+        <option value="register">تسجيل</option>
+        <option value="unregister">إلغاء تسجيل</option>
+        <option value="absent">غياب</option>
+        <option value="unabsent">إلغاء غياب</option>
+        <option value="bus_present">حضور باص</option>
+        <option value="bus_absent">غياب باص</option>
+        <option value="reset_evacuation">إعادة تعيين</option>
+        <option value="reset_bus">إعادة تعيين باص</option>
+      </select>
+    </div>
+    <div id="audit-list" style="max-height:400px;overflow-y:auto;padding:0"></div>
+  </div>
+</div>
+
+
+
+<!-- BUS SUPERVISORS VIEW -->
+<div id="v-bus" style="display:none">
+
+  <!-- Bus stats -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+    <div class="stat"><div class="sn" style="color:#854F0B" id="bus-total">13</div><div class="sl">إجمالي المشرفات</div></div>
+    <div class="stat"><div class="sn ng" id="bus-present">0</div><div class="sl">حاضرات</div></div>
+    <div class="stat"><div class="sn nr" id="bus-absent">0</div><div class="sl">غائبات</div></div>
+  </div>
+
+  <!-- Bus completion banner -->
+  <div id="bus-completion" style="display:none;align-items:center;justify-content:center;gap:12px;background:#EAF3DE;border:2px solid #3B6D11;border-radius:10px;padding:14px 18px;margin-bottom:10px">
+    <div style="font-size:32px">&#10003;</div>
+    <div>
+      <div style="font-size:15px;font-weight:700;color:#27500A">تم رصد جميع مشرفات الباص!</div>
+      <div style="font-size:11px;color:#3B6D11;margin-top:2px">اكتمل إحصاء مشرفات الباصات</div>
+    </div>
+  </div>
+
+  <div class="panel" style="padding:0">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid #eee">
+      <div style="font-size:14px;font-weight:700;color:#854F0B">&#128652; كشف مشرفات الباصات</div>
+      <button onclick="busReset()" class="btn btnd" style="font-size:11px;padding:5px 10px">إعادة تعيين</button>
+    </div>
+    <div id="bus-list" style="padding:8px 0"></div>
+  </div>
+
+  <!-- Bus last updated -->
+  <div id="bus-last-updated" style="font-size:10px;color:#888;text-align:center;margin-top:6px;padding:4px"></div>
+  <!-- Bus print button -->
+  <button onclick="busPrint()" style="width:100%;margin-top:10px;padding:10px;background:#854F0B;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">&#128438; طباعة كشف الباص</button>
+</div>
+
+
+<!-- Login Modal -->
+<div id="login-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;padding:28px 22px;max-width:360px;width:92%;margin:auto;text-align:center;direction:rtl;box-shadow:0 8px 32px rgba(0,0,0,0.25)">
+    <div style="font-size:36px;margin-bottom:8px">🏫</div>
+    <div style="font-size:17px;font-weight:700;color:#185FA5;margin-bottom:4px">نظام إخلاء مدرسة حصة بنت محمد</div>
+    <div style="font-size:12px;color:#888;margin-bottom:18px">يرجى اختيار اسمك للمتابعة</div>
+    <select id="login-supervisor-sel" style="width:100%;padding:10px;border:1.5px solid #ccc;border-radius:8px;font-size:13px;margin-bottom:10px;direction:rtl;background:#fff">
+      <option value="">-- اختري اسمك من القائمة --</option>
+      <optgroup label="رئيسات الأقسام / المسؤولات">
+        <option>موزة عمر  العرياني</option>
+        <option> آمنة الأحبابي</option>
+        <option>مها جبر </option>
+        <option>يمنة محمد  العامري</option>
+        <option>بخيتة ضاحي الكعبي</option>
+        <option>ليلى سالم الغيثي</option>
+        <option>اليازية سليم الدرعي</option>
+        <option>أمنة سعيد غالب</option>
+        <option>نفلة غزاي العتيبي</option>
+        <option>ميثة راشد اليحيائي</option>
+      </optgroup>
+      <optgroup label="الإدارة والأمن والسلامة">
+        <option>المديرة</option>
+        <option>فريق الأمن والسلامة</option>
+        <option>خديجة سيف اليحيائي</option>
+      </optgroup>
+    </select>
+    <div style="font-size:11px;color:#aaa;margin-bottom:6px">أو أدخلي اسمك يدوياً:</div>
+    <input id="login-name-inp" type="text" placeholder="اكتبي اسمك هنا..." style="width:100%;padding:10px;border:1.5px solid #ccc;border-radius:8px;font-size:13px;margin-bottom:16px;direction:rtl;text-align:right">
+    <button onclick="doLogin()" style="width:100%;padding:12px;background:#185FA5;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">دخول &#x276F;</button>
+    <div style="font-size:10px;color:#aaa;margin-top:12px">سيظهر اسمك مع كل إجراء تقومين به</div>
+  </div>
+</div>
+
+<!-- Custom confirm modal for mobile -->
+<div id="confirm-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:24px 20px;max-width:320px;width:90%;margin:auto;text-align:center;direction:rtl">
+    <div style="font-size:32px;margin-bottom:10px">&#9888;</div>
+    <div id="modal-msg" style="font-size:14px;font-weight:700;color:#1a1a1a;margin-bottom:6px"></div>
+    <div style="font-size:12px;color:#888;margin-bottom:20px">قائمة الموظفات تبقى كما هي</div>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button onclick="confirmReset()" style="background:#A32D2D;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:13px;font-weight:700;cursor:pointer">تأكيد المسح</button>
+      <button onclick="closeModal()" style="background:#f0f0f0;color:#333;border:none;border-radius:8px;padding:10px 24px;font-size:13px;cursor:pointer">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- Print report modal -->
+<div id="print-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;overflow-y:auto">
+  <div style="background:#fff;border-radius:12px;padding:20px;max-width:700px;width:95%;margin:20px auto;direction:rtl">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div class="modal-title" style="font-size:15px;font-weight:700">تقرير الإخلاء</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="doPrint()" style="background:#185FA5;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:12px;cursor:pointer">&#128438; طباعة</button>
+        <button onclick="closePrintModal()" style="background:#f0f0f0;color:#333;border:none;border-radius:8px;padding:8px 14px;font-size:12px;cursor:pointer">&#10005;</button>
+      </div>
+    </div>
+    <div id="report-content"></div>
+  </div>
+</div>
 </div>
 <script>
 
@@ -189,7 +721,7 @@ const ZONES = [
 const TEACHERS = [
   'الفراء أحمد محمد الظاهري','فاطمة فاضل الساعدي','يمنة محمد حربي العامري',
   'حصة سالم محمد العلوي','أمل سالم سعيد الكعبي','موزة سيف محمد الشامسي',
-  'ميناء راشد حميد اليحيائي','مريم عبد الله الشامسي','نقلة غزاي العتيبي',
+  'ميثاء راشد حميد اليحيائي','مريم عبد الله الشامسي','نقلة غزاي العتيبي',
   'أمنة حسين الأحبابي','فاطمة سالم خميس الشامسي','ليلى سالم الغيثي',
   'حمدة علي الحدادي','موزة علي الشامسي','أمنة سعيد غالب',
   'اليازية سليم الدرعي','جميلة سرور مشعان الشامسي','مها محمد سالم الشامسي',
@@ -205,23 +737,333 @@ const TEACHERS = [
   'طيبة عوض محمد عيد بالخيزل','سارة محمد ناصر شعلي القحطاني','غنية أحمد محمد الدرعي',
   'خديجة سيف اليحيائي','حنان سالم الشامسي','بخيتة ضاحي الكعبي',
   'العنود عبد الرحمن البلوشي','نورة محمد خلفان النيادي','فاطمة ناصر محمد البلوشي',
-  'موزة عمر سالم العرياني','فاطمة بنت إبراهيم الحلفاوي','مها محمد علي محمد جبر'
+  'موزة عمر سالم العرياني','فاطمة بنت إبراهيم الحلفاوي','مها محمد علي محمد جبر',
+  'Angélica Ferreira','الممرضة عبير'
 ];
 
-let state = {registered:{}, absent:[]};
+// ════════════════════════════════════════
+// USER COLOR PALETTE
+// Each user gets a unique color for visual identification
+// Colors: [background, border/text, light-bg for badges]
+// ════════════════════════════════════════
+const USER_COLORS = [
+  { bg:'#E3F2FD', border:'#1565C0', text:'#0D47A1', badge:'#BBDEFB' }, // أزرق
+  { bg:'#F3E5F5', border:'#6A1B9A', text:'#4A148C', badge:'#E1BEE7' }, // بنفسجي
+  { bg:'#E8F5E9', border:'#2E7D32', text:'#1B5E20', badge:'#C8E6C9' }, // أخضر
+  { bg:'#FFF3E0', border:'#E65100', text:'#BF360C', badge:'#FFE0B2' }, // برتقالي
+  { bg:'#FCE4EC', border:'#880E4F', text:'#880E4F', badge:'#F8BBD9' }, // وردي
+  { bg:'#E0F7FA', border:'#006064', text:'#004D40', badge:'#B2EBF2' }, // تيل
+  { bg:'#FFF8E1', border:'#F57F17', text:'#E65100', badge:'#FFECB3' }, // أصفر ذهبي
+  { bg:'#EFEBE9', border:'#4E342E', text:'#3E2723', badge:'#D7CCC8' }, // بني
+  { bg:'#E8EAF6', border:'#283593', text:'#1A237E', badge:'#C5CAE9' }, // نيلي
+  { bg:'#F1F8E9', border:'#558B2F', text:'#33691E', badge:'#DCEDC8' }, // أخضر فاتح
+  { bg:'#FBE9E7', border:'#BF360C', text:'#B71C1C', badge:'#FFCCBC' }, // أحمر فاتح
+  { bg:'#E0F2F1', border:'#00695C', text:'#004D40', badge:'#B2DFDB' }, // أخضر مزرق
+];
+
+// Map: userName → colorIndex (assigned at login, stored in sessionStorage)
+var _userColorMap = {};
+try { _userColorMap = JSON.parse(sessionStorage.getItem('hessa_color_map')||'{}'); } catch(e){}
+
+function getUserColor(userName){
+  if(!userName) return null;
+  if(_userColorMap[userName] === undefined){
+    // Assign deterministic color based on name hash
+    var hash = 0;
+    for(var i=0; i<userName.length; i++) hash = (hash*31 + userName.charCodeAt(i)) & 0xFFFF;
+    _userColorMap[userName] = hash % USER_COLORS.length;
+    try{ sessionStorage.setItem('hessa_color_map', JSON.stringify(_userColorMap)); }catch(e){}
+  }
+  return USER_COLORS[_userColorMap[userName]];
+}
+
+function hexToRgba(hex, alpha){
+  var r=0,g=0,b=0;
+  if(hex.length===7){ r=parseInt(hex.slice(1,3),16); g=parseInt(hex.slice(3,5),16); b=parseInt(hex.slice(5,7),16); }
+  return 'rgba('+r+','+g+','+b+','+alpha+')';
+}
+
+function getUserColorCSS(userName, type){
+  var c = getUserColor(userName);
+  if(!c) return '';
+  if(type==='bg')     return 'background:'+c.bg+';border-color:'+c.border+';color:'+c.text+';';
+  if(type==='badge')  return 'background:'+c.badge+';color:'+c.text+';border:1px solid '+c.border+';';
+  if(type==='dot')    return 'background:'+c.border+';';
+  if(type==='border') return 'border-left:4px solid '+c.border+';';
+  return '';
+}
+
+// ════════════════════════════════════════
+// STATE  — registered & absent are now OBJECTS (not array) for Firebase compat
+// registered: { teacherName: { zone, by, at } }
+// absent:     { teacherName: { by, at } }
+// ════════════════════════════════════════
+let state = {registered:{}, absent:{}};
 let curFloor = 'gf', selZone = null;
 
-function save(){try{localStorage.setItem('evacH3',JSON.stringify(state))}catch(e){}}
-function load(){try{const d=localStorage.getItem('evacH3');if(d)state=JSON.parse(d);}catch(e){}}
+// ── Current user (set at login) ───────────────────────────────────────────
+var currentUser = sessionStorage.getItem('hessa_user') || null;
+
+// ── Firebase Configuration ────────────────────────────────────────────────
+var FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAz1wPBADMQvLraBGdFUXd-gYnWlHgH1rQ",
+  authDomain: "eewaa249.firebaseapp.com",
+  databaseURL: "https://eewaa249-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "eewaa249",
+  storageBucket: "eewaa249.firebasestorage.app",
+  messagingSenderId: "365775998278",
+  appId: "1:365775998278:web:475ff8554e123c1dcfa947",
+  measurementId: "G-G4F8C68VL9"
+};
+
+var db = null;
+var syncEnabled = false;
+
+function fmtTime(ts){
+  if(!ts) return '';
+  var d = new Date(ts);
+  return d.toLocaleTimeString('ar',{hour:'2-digit',minute:'2-digit'});
+}
+
+// ════════════════════════════════════════
+// AUDIT LOG — كل عملية تُسجَّل في Firebase
+// ════════════════════════════════════════
+function auditLog(action, target, zone){
+  var entry = {
+    action: action,
+    target: target || '',
+    zone: zone || '',
+    by: currentUser || 'غير معروف',
+    at: Date.now(),
+    device: navigator.userAgent.substring(0,80)
+  };
+  // Always store locally
+  try{
+    var logs = JSON.parse(localStorage.getItem('hessa_audit_local')||'[]');
+    logs.unshift(entry);
+    if(logs.length > 200) logs = logs.slice(0,200);
+    localStorage.setItem('hessa_audit_local', JSON.stringify(logs));
+  }catch(e){}
+  // Push to Firebase
+  if(syncEnabled && db){
+    db.ref('hessa_school/audit').push(entry).catch(function(){});
+  }
+}
+
+// ════════════════════════════════════════
+// HELPER: Encode Firebase key (no dots/slashes in keys)
+// ════════════════════════════════════════
+function encodeFirebaseKey(str){
+  return str.replace(/\./g,'__dot__').replace(/\//g,'__slash__').replace(/#/g,'__hash__').replace(/\$/g,'__dollar__').replace(/\[/g,'__lb__').replace(/\]/g,'__rb__');
+}
+function decodeFirebaseKey(str){
+  return str.replace(/__dot__/g,'.').replace(/__slash__/g,'/').replace(/__hash__/g,'#').replace(/__dollar__/g,'$').replace(/__lb__/g,'[').replace(/__rb__/g,']');
+}
+
+// ════════════════════════════════════════
+// FIREBASE INIT — Real-time listeners
+// ════════════════════════════════════════
+var _fbListeners = []; // Track listeners for cleanup
+
+function initFirebase(){
+  try {
+    if(typeof firebase === 'undefined'){ showSyncStatus('offline'); return; }
+    var app;
+    try { app = firebase.app(); } catch(e2) { app = firebase.initializeApp(FIREBASE_CONFIG); }
+    db = firebase.database(app);
+    syncEnabled = true;
+
+    // ── Connection state listener ─────────────────────────────────────────
+    db.ref('.info/connected').on('value', function(snap){
+      if(snap.val() === true){
+        showSyncStatus('synced');
+        // Write presence record
+        if(currentUser){
+          var presRef = db.ref('hessa_school/presence/' + encodeFirebaseKey(currentUser));
+          presRef.set({ name: currentUser, at: Date.now(), online: true });
+          presRef.onDisconnect().update({ online: false, leftAt: Date.now() });
+        }
+      } else {
+        showSyncStatus('offline');
+      }
+    });
+
+    // ── Main evacuation listener (real-time) ──────────────────────────────
+    var evacRef = db.ref('hessa_school/evacuation');
+    evacRef.on('value', function(snap){
+      var data = snap.val() || {};
+      // Merge Firebase data into state (Firebase is source of truth)
+      state.registered = data.registered || {};
+      state.absent     = data.absent     || {};
+      // Backup to localStorage
+      try{ localStorage.setItem('hessa_evac_v1', JSON.stringify(state)); }catch(e){}
+      renderAll_internal();
+      showSyncStatus('synced');
+      // Update last-sync indicator
+      var el = document.getElementById('last-sync-time');
+      if(el) el.textContent = 'آخر مزامنة: ' + fmtTime(Date.now());
+    }, function(err){
+      console.warn('Evacuation listener error:', err);
+      showSyncStatus('error');
+    });
+
+    // ── Bus listener (real-time) ──────────────────────────────────────────
+    var busRef = db.ref('hessa_school/bus');
+    busRef.on('value', function(snap){
+      var data = snap.val() || {};
+      busState.present    = data.present    || {};
+      busState.lastUpdated = data.lastUpdated || 0;
+      busState.updatedBy   = data.updatedBy   || '';
+      try{ localStorage.setItem('hessa_bus_v1', JSON.stringify(busState)); }catch(e){}
+      renderBusList();
+    }, function(){});
+
+    // ── Students listener (real-time) ─────────────────────────────────────
+    var studRef = db.ref('hessa_school/students');
+    studRef.on('value', function(snap){
+      var data = snap.val() || {};
+      // Apply students data to DOM inputs
+      if(data.classes){
+        Object.keys(data.classes).forEach(function(key){
+          var cls = data.classes[key];
+          var col = document.querySelector('.cls-col[data-grade="'+cls.grade+'"][data-sec="'+cls.sec+'"]');
+          if(col){
+            var absInp = col.querySelector('.abs-inp');
+            var prsInp = col.querySelector('.prs-inp');
+            if(absInp && cls.absent !== undefined && document.activeElement !== absInp){
+              absInp.value = cls.absent !== null ? cls.absent : '';
+            }
+            if(prsInp && cls.present !== undefined && document.activeElement !== prsInp){
+              prsInp.value = cls.present !== null ? cls.present : '';
+            }
+            checkStudentClass(col);
+          }
+        });
+      }
+      // Update students last-updated
+      if(data.lastUpdated){
+        var el = document.getElementById('students-last-updated');
+        if(el) el.textContent = 'آخر تحديث: ' + (data.updatedBy||'') + ' — ' + fmtTime(data.lastUpdated);
+      }
+    }, function(){});
+
+    showSyncStatus('synced');
+  } catch(e) {
+    console.warn('Firebase init failed:', e);
+    syncEnabled = false;
+    showSyncStatus('offline');
+  }
+}
+
+// ════════════════════════════════════════
+// STUDENTS FIREBASE SAVE
+// ════════════════════════════════════════
+function saveStudentClass(col){
+  if(!syncEnabled || !db || !currentUser) return;
+  var grade = col.getAttribute('data-grade');
+  var sec   = col.getAttribute('data-sec');
+  var absInp = col.querySelector('.abs-inp');
+  var prsInp = col.querySelector('.prs-inp');
+  var absVal = absInp && absInp.value !== '' ? parseInt(absInp.value) : null;
+  var prsVal = prsInp && prsInp.value !== '' ? parseInt(prsInp.value) : null;
+  var key = 'G' + grade + '_' + sec;
+  db.ref('hessa_school/students/classes/' + key).set({
+    grade: grade, sec: sec,
+    absent: absVal, present: prsVal,
+    updatedBy: currentUser, at: Date.now()
+  }).catch(function(){});
+  db.ref('hessa_school/students').update({
+    lastUpdated: Date.now(), updatedBy: currentUser
+  }).catch(function(){});
+}
+
+function save(){
+  // localStorage backup
+  try{ localStorage.setItem('hessa_evac_v1', JSON.stringify(state)); }catch(e){}
+  if(!syncEnabled || !db) return;
+  // Write to Firebase — listeners will broadcast to all users
+  db.ref('hessa_school/evacuation').set({
+    registered: state.registered,
+    absent: state.absent,
+    lastUpdated: Date.now(),
+    updatedBy: currentUser || 'غير معروف'
+  }).then(function(){ showSyncStatus('synced'); })
+    .catch(function(e){ console.warn('Save error:', e); showSyncStatus('error'); });
+}
+
+function load(){
+  // Load from localStorage as initial state (Firebase listener will override)
+  try{
+    var d = localStorage.getItem('hessa_evac_v1');
+    if(d){
+      var parsed = JSON.parse(d);
+      if(Array.isArray(parsed.absent)){
+        var obj={};
+        parsed.absent.forEach(function(n){ obj[n]={by:'',at:0}; });
+        parsed.absent = obj;
+      }
+      if(parsed.registered){
+        Object.keys(parsed.registered).forEach(function(k){
+          if(typeof parsed.registered[k] === 'string'){
+            parsed.registered[k] = {zone: parsed.registered[k], by:'', at:0};
+          }
+        });
+      }
+      // Only use registered/absent from localStorage (ignore lastUpdated etc.)
+      state.registered = parsed.registered || {};
+      state.absent     = parsed.absent     || {};
+    }
+  }catch(e){ state = {registered:{}, absent:{}}; }
+}
+
+function showSyncStatus(status){
+  var el = document.getElementById('sync-status');
+  if(!el) return;
+  if(status==='synced'){  el.textContent='🟢 متزامن'; el.style.color='#27500A'; }
+  else if(status==='offline'){ el.textContent='🔴 غير متزامن'; el.style.color='#A32D2D'; }
+  else { el.textContent='🟡 خطأ في المزامنة'; el.style.color='#854F0B'; }
+}
+
+// ── Login ─────────────────────────────────────────────────────────────────
+function showLoginModal(){
+  document.getElementById('login-modal').style.display = 'flex';
+  var inp = document.getElementById('login-name-inp');
+  // pre-fill with supervisor list
+  inp.value = '';
+  setTimeout(function(){ inp.focus(); }, 200);
+}
+
+function doLogin(){
+  var sel = document.getElementById('login-supervisor-sel');
+  var inp = document.getElementById('login-name-inp');
+  var name = (sel && sel.value) ? sel.value : (inp ? inp.value.trim() : '');
+  if(!name){ alert('يرجى إدخال اسمك أو اختياره'); return; }
+  currentUser = name;
+  sessionStorage.setItem('hessa_user', name);
+  document.getElementById('login-modal').style.display = 'none';
+  var loginUc = getUserColor(name);
+  var badgeEl = document.getElementById('current-user-badge');
+  badgeEl.textContent = '● أنتِ: ' + name;
+  badgeEl.style.cssText = 'display:inline-block;font-size:10px;border-radius:8px;padding:2px 8px;margin-top:3px;font-weight:700;'
+    + (loginUc ? 'background:'+loginUc.bg+';color:'+loginUc.text+';border:1px solid '+loginUc.border+';' : 'background:#E6F1FB;color:#0C447C;border:1px solid #85B7EB;');
+  initFirebase();
+  load();
+  renderAll_internal();
+  setFloor('gf');
+  // Start presence tracking after login
+  setTimeout(startPresenceUpdater, 1000);
+}
+
 load();
 
 function calcStats(){
-  const reg = Object.keys(state.registered).filter(t=>!state.absent.includes(t));
-  const present = reg.length;
-  const totalActive = TEACHERS.length - state.absent.length;
-  const missing = totalActive - present;
-  const pct = totalActive > 0 ? Math.round(present/totalActive*100) : 0;
-  return {total:TEACHERS.length, present, missing, absent:state.absent.length, pct, totalActive};
+  var absentKeys = Object.keys(state.absent);
+  var regKeys = Object.keys(state.registered).filter(function(t){ return !(t in state.absent); });
+  var present = regKeys.length;
+  var totalActive = TEACHERS.length - absentKeys.length;
+  var missing = totalActive - present;
+  var pct = totalActive > 0 ? Math.round(present/totalActive*100) : 0;
+  return {total:TEACHERS.length, present:present, missing:missing, absent:absentKeys.length, pct:pct, totalActive:totalActive};
 }
 
 function renderStats(){
@@ -269,7 +1111,11 @@ function hideCompletionBanner(){
 }
 
 function zoneCount(zid){
-  return Object.entries(state.registered).filter(function(e){return e[1]===zid && !state.absent.includes(e[0]);}).length;
+  return Object.entries(state.registered).filter(function(e){
+    var entry = e[1];
+    var zoneId = (typeof entry === 'object' && entry) ? entry.zone : entry;
+    return zoneId === zid && !(e[0] in state.absent);
+  }).length;
 }
 
 function renderZones(){
@@ -317,17 +1163,39 @@ function selectZone(zid){
   var zone = ZONES.find(function(z){return z.id===zid;});
   document.getElementById('zpanel').style.display = 'block';
   document.getElementById('zt').textContent = zone.name;
-  document.getElementById('zs').textContent = 'المسؤولة: ' + zone.resp + ' · اضغط على اسم الموظفة لتسجيل وصولها';
+
+  var lastBy = '', lastAt = 0;
+  Object.entries(state.registered).forEach(function(e){
+    var entry = e[1];
+    var zId = (typeof entry==='object'&&entry) ? entry.zone : entry;
+    if(zId===zid && entry && entry.at > lastAt){ lastBy=entry.by||''; lastAt=entry.at; }
+  });
+  var byLine = lastBy ? ' · آخر تسجيل: ' + lastBy + ' ' + fmtTime(lastAt) : '';
+  document.getElementById('zs').innerHTML = '<span style="color:#185FA5;font-weight:700">المسؤولة: ' + zone.resp + '</span> · اضغطي على اسم الموظفة لتسجيلها' + (byLine ? '<br><span style="color:#888;font-size:10px">🕐 ' + byLine.replace(' · ','') + '</span>' : '');
+
   var grid = document.getElementById('zg');
-  var available = TEACHERS.filter(function(t){return !state.absent.includes(t);});
+  var available = TEACHERS.filter(function(t){ return !(t in state.absent); });
   grid.innerHTML = '';
   available.forEach(function(t){
-    var rz = state.registered[t];
-    var rzone = ZONES.find(function(z){return z.id===rz;});
+    var entry = state.registered[t];
+    var rz = entry ? (typeof entry==='object' ? entry.zone : entry) : null;
+    var rzone = rz ? ZONES.find(function(z){return z.id===rz;}) : null;
     var span = document.createElement('span');
     if(rz === zid){
+      // ── Present in THIS zone: apply registrant's color ──
+      var regByUser = (entry && entry.by) ? entry.by : null;
+      var uc = getUserColor(regByUser);
       span.className = 'tc present';
-      span.textContent = '\u2713 ' + t;
+      if(uc){
+        span.style.cssText = 'background:'+uc.bg+';color:'+uc.text+';border:1.5px solid '+uc.border+';font-weight:700;';
+      }
+      // Show name + registrant badge
+      span.innerHTML = '\u2713 ' + t
+        + (regByUser ? ' <span style="font-size:9px;background:'+(uc?uc.badge:'#e0e0e0')+';color:'+(uc?uc.text:'#555')+';border-radius:3px;padding:0 4px;margin-right:2px">'+regByUser+'</span>' : '');
+      span.style.cursor = 'pointer';
+      span.setAttribute('data-name', t);
+      span.title = 'سجّلت بواسطة: ' + (regByUser||'') + ' — اضغطي لإلغاء التسجيل';
+      span.addEventListener('click', function(){ unregT(this.getAttribute('data-name')); });
     } else if(rz){
       span.className = 'tc other';
       span.title = rzone ? rzone.name : rz;
@@ -346,10 +1214,68 @@ function selectZone(zid){
 }
 
 function regT(name, zid){
-  state.registered[name] = zid;
-  showToast('تم تسجيل ' + name + ' في المنطقة');
-  renderAll_();
-  selectZone(zid);
+  if(!currentUser){ showLoginModal(); return; }
+  var entry = {zone: zid, by: currentUser, at: Date.now()};
+  if(syncEnabled && db){
+    // Atomic write to Firebase — real-time broadcast to all users
+    var updates = {};
+    updates['hessa_school/evacuation/registered/' + encodeFirebaseKey(name)] = entry;
+    updates['hessa_school/evacuation/lastUpdated'] = Date.now();
+    updates['hessa_school/evacuation/updatedBy'] = currentUser;
+    db.ref().update(updates)
+      .then(function(){
+        auditLog('register', name, zid);
+        showToast('✓ تم تسجيل ' + name);
+        showSyncStatus('synced');
+      })
+      .catch(function(e){
+        console.warn('regT error:', e);
+        // Fallback to local
+        state.registered[name] = entry;
+        auditLog('register', name, zid);
+        save();
+        renderAll_internal();
+        selectZone(zid);
+      });
+  } else {
+    state.registered[name] = entry;
+    auditLog('register', name, zid);
+    showToast('تم تسجيل ' + name + ' في المنطقة');
+    save();
+    renderAll_internal();
+    selectZone(zid);
+  }
+}
+
+function unregT(name){
+  if(!currentUser){ showLoginModal(); return; }
+  if(syncEnabled && db){
+    var updates = {};
+    updates['hessa_school/evacuation/registered/' + encodeFirebaseKey(name)] = null;
+    updates['hessa_school/evacuation/lastUpdated'] = Date.now();
+    updates['hessa_school/evacuation/updatedBy'] = currentUser;
+    db.ref().update(updates)
+      .then(function(){
+        auditLog('unregister', name);
+        showToast('✗ تم إلغاء تسجيل ' + name);
+        showSyncStatus('synced');
+      })
+      .catch(function(e){
+        console.warn('unregT error:', e);
+        delete state.registered[name];
+        auditLog('unregister', name);
+        save();
+        renderAll_internal();
+        if(selZone) selectZone(selZone);
+      });
+  } else {
+    delete state.registered[name];
+    auditLog('unregister', name);
+    showToast('تم إلغاء تسجيل ' + name);
+    save();
+    renderAll_internal();
+    if(selZone) selectZone(selZone);
+  }
 }
 
 function showToast(msg){
@@ -360,33 +1286,58 @@ function showToast(msg){
 }
 
 function renderAllView(){
-  const q = (document.getElementById('sinp') ? document.getElementById('sinp').value : '').trim();
-  const list = document.getElementById('alllist');
-  const filtered = q ? TEACHERS.filter(function(t){return t.indexOf(q)>=0;}) : TEACHERS;
+  var q = (document.getElementById('sinp') ? document.getElementById('sinp').value : '').trim();
+  var list = document.getElementById('alllist');
+  var filtered = q ? TEACHERS.filter(function(t){return t.indexOf(q)>=0;}) : TEACHERS;
   list.innerHTML = filtered.map(function(t){
-    const zid = state.registered[t];
-    const zone = ZONES.find(function(z){return z.id===zid;});
-    const isAbs = state.absent.includes(t);
-    let status='', color='';
-    if(isAbs){status='غائبة';color='#A32D2D';}
-    else if(zone){status=zone.name;color='#3B6D11';}
-    else{status='لم تُرصد بعد';color='#854F0B';}
-    return '<div class="all-row"><span style="font-weight:600">'+t+'</span><span style="color:'+color+';font-size:11px">'+status+'</span></div>';
+    var entry = state.registered[t];
+    var zid = entry ? (typeof entry==='object' ? entry.zone : entry) : null;
+    var zone = zid ? ZONES.find(function(z){return z.id===zid;}) : null;
+    var isAbs = t in state.absent;
+    var status='', color='', extra='';
+    var rowBorderStyle = '';
+    if(isAbs){
+      var absEntry = state.absent[t];
+      status='غائبة';color='#A32D2D';
+      extra = (absEntry&&absEntry.by) ? absEntry.by+' '+fmtTime(absEntry.at) : '';
+    } else if(zone){
+      status=zone.name;color='#3B6D11';
+      extra = (entry&&entry.by) ? entry.by + ' ' + fmtTime(entry.at) : '';
+      var rowUc = getUserColor(entry && entry.by);
+      if(rowUc){ color=rowUc.text; rowBorderStyle='border-right:4px solid '+rowUc.border+';background:'+rowUc.bg+';'; }
+    } else {
+      status='لم تُرصد بعد';color='#854F0B';
+    }
+    var byBadge = '';
+    if(extra && (zone || isAbs)){
+      var byUc2 = getUserColor(entry && entry.by || (state.absent[t] && state.absent[t].by));
+      byBadge = byUc2
+        ? '<span style="background:'+byUc2.badge+';color:'+byUc2.text+';border:1px solid '+byUc2.border+';border-radius:4px;padding:1px 6px;font-size:9px;font-weight:700;margin-right:4px">'+extra+'</span>'
+        : '<span style="color:#aaa;font-size:10px"> · '+extra+'</span>';
+    }
+    return '<div class="all-row" style="'+rowBorderStyle+'"><span style="font-weight:600">'+t+'</span>'
+      +'<span style="color:'+color+';font-size:11px">'+status+' '+byBadge+'</span></div>';
   }).join('');
 }
 
 function renderAbsentView(){
   var sel = document.getElementById('abssel');
-  var notAbs = TEACHERS.filter(function(t){return !state.absent.includes(t);});
+  var notAbs = TEACHERS.filter(function(t){ return !(t in state.absent); });
   sel.innerHTML = '<option value="">اختر الموظفة...</option>' + notAbs.map(function(t){
     return '<option value="'+t+'">'+t+'</option>';
   }).join('');
   var chips = document.getElementById('abschips');
   chips.innerHTML = '';
-  state.absent.forEach(function(n){
+  Object.keys(state.absent).forEach(function(n){
+    var entry = state.absent[n];
     var sp = document.createElement('span');
     sp.className = 'achip';
-    var txt = document.createTextNode(n + ' ');
+    var absChipUc = getUserColor(entry && entry.by);
+    if(absChipUc){
+      sp.style.cssText = 'display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid '+absChipUc.border+';border-radius:20px;font-size:12px;color:'+absChipUc.text+';background:'+absChipUc.bg+';';
+    }
+    var label = n + (entry&&entry.by ? ' (' + entry.by + ')' : '') + ' ';
+    var txt = document.createTextNode(label);
     sp.appendChild(txt);
     var btn = document.createElement('button');
     btn.className = 'rm';
@@ -398,32 +1349,144 @@ function renderAbsentView(){
   });
 }
 function addAbsent(){
-  const sel = document.getElementById('abssel');
-  const v = sel.value;
+  if(!currentUser){ showLoginModal(); return; }
+  var sel = document.getElementById('abssel');
+  var v = sel.value;
   if(!v) return;
-  if(!state.absent.includes(v)) state.absent.push(v);
-  delete state.registered[v];
-  renderAll_();
+  var now = Date.now();
+  if(syncEnabled && db){
+    var updates = {};
+    updates['hessa_school/evacuation/absent/' + encodeFirebaseKey(v)] = {by: currentUser, at: now};
+    updates['hessa_school/evacuation/registered/' + encodeFirebaseKey(v)] = null;
+    updates['hessa_school/evacuation/lastUpdated'] = now;
+    updates['hessa_school/evacuation/updatedBy'] = currentUser;
+    db.ref().update(updates)
+      .then(function(){
+        auditLog('absent', v);
+        showSyncStatus('synced');
+      })
+      .catch(function(e){
+        console.warn('addAbsent error:', e);
+        state.absent[v] = {by: currentUser, at: now};
+        delete state.registered[v];
+        auditLog('absent', v);
+        save();
+        renderAll_internal();
+      });
+  } else {
+    state.absent[v] = {by: currentUser, at: now};
+    delete state.registered[v];
+    auditLog('absent', v);
+    save();
+    renderAll_internal();
+  }
 }
 
 function removeAbsent(n){
-  state.absent = state.absent.filter(function(x){return x!==n;});
-  renderAll_();
+  if(!currentUser){ showLoginModal(); return; }
+  var now = Date.now();
+  if(syncEnabled && db){
+    var updates = {};
+    updates['hessa_school/evacuation/absent/' + encodeFirebaseKey(n)] = null;
+    updates['hessa_school/evacuation/lastUpdated'] = now;
+    updates['hessa_school/evacuation/updatedBy'] = currentUser;
+    db.ref().update(updates)
+      .then(function(){
+        auditLog('unabsent', n);
+        showSyncStatus('synced');
+      })
+      .catch(function(e){
+        console.warn('removeAbsent error:', e);
+        delete state.absent[n];
+        auditLog('unabsent', n);
+        save();
+        renderAll_internal();
+      });
+  } else {
+    delete state.absent[n];
+    auditLog('unabsent', n);
+    save();
+    renderAll_internal();
+  }
 }
 
 function doReset(){
-  if(!confirm('هل تريد مسح بيانات التسجيل والغائبات فقط؟ سيتم الاحتفاظ بقائمة الموظفات كما هي.')) return;
-  state.registered = {}; state.absent = []; selZone = null;
-  hideCompletionBanner();
-  renderAll_(); setView('map');
+  var modal = document.getElementById('confirm-modal');
+  document.getElementById('modal-msg').textContent = 'هل تريد مسح بيانات التسجيل والغائبات فقط؟';
+  modal.style.display = 'flex';
+}
+function confirmReset(){
+  if(!currentUser){ showLoginModal(); return; }
+  var modal = document.getElementById('confirm-modal');
+  var isBus = modal._busReset;
+  modal._busReset = false;
+  closeModal();
+  if(isBus){
+    if(syncEnabled && db){
+      db.ref('hessa_school/bus').set({
+        present: {},
+        lastUpdated: Date.now(),
+        updatedBy: currentUser
+      }).then(function(){
+        auditLog('reset_bus', 'مشرفات الباص');
+        showSyncStatus('synced');
+      }).catch(function(){
+        busState = {present:{}};
+        auditLog('reset_bus', 'مشرفات الباص');
+        saveBus();
+        renderBusList();
+      });
+    } else {
+      busState = {present:{}};
+      auditLog('reset_bus', 'مشرفات الباص');
+      saveBus();
+      renderBusList();
+    }
+  } else {
+    if(syncEnabled && db){
+      db.ref('hessa_school/evacuation').set({
+        registered: {},
+        absent: {},
+        lastUpdated: Date.now(),
+        updatedBy: currentUser
+      }).then(function(){
+        selZone = null;
+        auditLog('reset_evacuation', 'جميع البيانات');
+        hideCompletionBanner();
+        showSyncStatus('synced');
+        setView('map');
+      }).catch(function(){
+        state.registered = {}; state.absent = {}; selZone = null;
+        auditLog('reset_evacuation', 'جميع البيانات');
+        hideCompletionBanner();
+        save();
+        renderAll_internal();
+        setView('map');
+      });
+    } else {
+      state.registered = {}; state.absent = {}; selZone = null;
+      auditLog('reset_evacuation', 'جميع البيانات');
+      hideCompletionBanner();
+      save();
+      renderAll_internal();
+      setView('map');
+    }
+  }
+}
+function closeModal(){
+  document.getElementById('confirm-modal').style.display = 'none';
 }
 
-function renderAll_(){
+function renderAll_internal(){
   renderStats();
   renderZones();
   renderAllView();
   renderAbsentView();
   if(selZone) selectZone(selZone);
+}
+
+function renderAll_(){
+  renderAll_internal();
   save();
 }
 
@@ -438,130 +1501,540 @@ function setFloor(f){
 }
 
 function setView(v){
-  ['map','all','absent','reset'].forEach(function(n){
+  ['map','all','absent','reset','bus','students','audit'].forEach(function(n){
     document.getElementById('v-'+n).style.display = n===v ? 'block' : 'none';
   });
   document.querySelectorAll('.tab').forEach(function(t,i){
-    t.classList.toggle('on', ['map','all','absent','reset'][i]===v);
+    t.classList.toggle('on', ['map','all','absent','reset','bus','students','audit'][i]===v);
   });
   if(v==='all') renderAllView();
   if(v==='absent') renderAbsentView();
+  if(v==='bus') renderBusList();
+  if(v==='students') initStudentsListeners();
+  if(v==='audit') loadAuditLog();
 }
 
 document.getElementById('mapimg').onload = function(){renderZones();};
 window.addEventListener('resize', renderZones);
-setFloor('gf');
-renderAll_();
+
+// ── Start: show login or init directly ───────────────────────────────────
+if(!currentUser){
+  showLoginModal();
+} else {
+  var initUc = getUserColor(currentUser);
+  var initBadgeEl = document.getElementById('current-user-badge');
+  initBadgeEl.textContent = '● أنتِ: ' + currentUser;
+  initBadgeEl.style.cssText = 'display:inline-block;font-size:10px;border-radius:8px;padding:2px 8px;margin-top:3px;font-weight:700;'
+    + (initUc ? 'background:'+initUc.bg+';color:'+initUc.text+';border:1px solid '+initUc.border+';' : 'background:#E6F1FB;color:#0C447C;border:1px solid #85B7EB;');
+  initFirebase();
+  load();
+  renderAll_internal();
+  setFloor('gf');
+  setTimeout(startPresenceUpdater, 1500);
+}
 
 
 function printReport(){
   var s = calcStats();
   var now = new Date();
-  var dateStr = now.toLocaleDateString('ar-SA', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  var timeStr = now.toLocaleTimeString('ar-SA', {hour:'2-digit',minute:'2-digit'});
+  var dateStr = now.toLocaleDateString('ar', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  var timeStr = now.toLocaleTimeString('ar', {hour:'2-digit',minute:'2-digit'});
 
-  // Group teachers by zone
   var zoneGroups = {};
   ZONES.forEach(function(z){ zoneGroups[z.id] = []; });
   zoneGroups['unregistered'] = [];
   zoneGroups['absent'] = [];
 
   TEACHERS.forEach(function(t){
-    if(state.absent.includes(t)){
-      zoneGroups['absent'].push(t);
-    } else if(state.registered[t]){
-      zoneGroups[state.registered[t]].push(t);
-    } else {
-      zoneGroups['unregistered'].push(t);
-    }
+    if(t in state.absent){ zoneGroups['absent'].push(t); }
+    else if(state.registered[t]){ var __zid=(typeof state.registered[t]==='object')?state.registered[t].zone:state.registered[t]; zoneGroups[__zid].push(t); }
+    else { zoneGroups['unregistered'].push(t); }
   });
 
   var rows = '';
   var rowNum = 1;
-
-  // Zones sections
   ZONES.forEach(function(z){
     var list = zoneGroups[z.id];
-    if(list.length === 0) return;
+    if(!list.length) return;
     list.forEach(function(t, i){
-      rows += '<tr>' +
-        '<td>' + rowNum++ + '</td>' +
-        '<td style="font-weight:600">' + t + '</td>' +
-        '<td style="color:#27500A;font-weight:600">' + (i===0 ? z.name : '') + '</td>' +
-        '<td style="color:#27500A;text-align:center">&#10003; مرصودة</td>' +
-        '</tr>';
+      rows += '<tr><td style="padding:6px 8px;border-bottom:1px solid #eee;color:#666">' + rowNum++ + '</td>' +
+        '<td style="padding:6px 8px;border-bottom:1px solid #eee;font-weight:600">' + t + '</td>' +
+        '<td style="padding:6px 8px;border-bottom:1px solid #eee;color:#27500A">' + (i===0?z.name:'') + '</td>' +
+        '<td style="padding:6px 8px;border-bottom:1px solid #eee;color:#27500A;text-align:center">&#10003; مرصودة</td></tr>';
     });
   });
-
-  // Unregistered
   zoneGroups['unregistered'].forEach(function(t){
-    rows += '<tr style="background:#FFFDE7">' +
-      '<td>' + rowNum++ + '</td>' +
-      '<td style="font-weight:600">' + t + '</td>' +
-      '<td style="color:#854F0B">لم تُرصد بعد</td>' +
-      '<td style="color:#854F0B;text-align:center">&#9888; غير مرصودة</td>' +
-      '</tr>';
+    rows += '<tr style="background:#FFFDE7"><td style="padding:6px 8px;border-bottom:1px solid #eee;color:#666">' + rowNum++ + '</td>' +
+      '<td style="padding:6px 8px;border-bottom:1px solid #eee;font-weight:600">' + t + '</td>' +
+      '<td style="padding:6px 8px;border-bottom:1px solid #eee;color:#854F0B">لم تُرصد بعد</td>' +
+      '<td style="padding:6px 8px;border-bottom:1px solid #eee;color:#854F0B;text-align:center">&#9888;</td></tr>';
   });
-
-  // Absent
   zoneGroups['absent'].forEach(function(t){
-    rows += '<tr style="background:#FFF5F5">' +
-      '<td>' + rowNum++ + '</td>' +
-      '<td style="font-weight:600">' + t + '</td>' +
-      '<td style="color:#A32D2D">غائبة اليوم</td>' +
-      '<td style="color:#A32D2D;text-align:center">&#8212; غائبة</td>' +
-      '</tr>';
+    rows += '<tr style="background:#FFF5F5"><td style="padding:6px 8px;border-bottom:1px solid #eee;color:#666">' + rowNum++ + '</td>' +
+      '<td style="padding:6px 8px;border-bottom:1px solid #eee;font-weight:600">' + t + '</td>' +
+      '<td style="padding:6px 8px;border-bottom:1px solid #eee;color:#A32D2D">غائبة اليوم</td>' +
+      '<td style="padding:6px 8px;border-bottom:1px solid #eee;color:#A32D2D;text-align:center">&#8212;</td></tr>';
   });
 
   var statusColor = s.missing===0 ? '#27500A' : '#A32D2D';
-  var statusText = s.missing===0 ? 'اكتمل الإحصاء - جميع الموظفات تم رصدهن' : 'لا يزال ' + s.missing + ' موظفة لم يُرصدن';
+  var statusText = s.missing===0 ? '&#10003; اكتمل الإحصاء - جميع الموظفات تم رصدهن' : '&#9888; لا يزال ' + s.missing + ' موظفة لم يُرصدن';
 
-  var html = '<!DOCTYPE html><html dir="rtl" lang="ar"><head>' +
-    '<meta charset="UTF-8">' +
-    '<title>تقرير إخلاء - مدرسة حصة بنت محمد</title>' +
-    '<style>' +
-    'body{font-family:Arial,sans-serif;margin:20px;direction:rtl;color:#1a1a1a}' +
-    '.header{text-align:center;border-bottom:3px solid #185FA5;padding-bottom:14px;margin-bottom:18px}' +
-    '.school-name{font-size:20px;font-weight:700;color:#185FA5}' +
-    '.report-title{font-size:16px;font-weight:700;margin:4px 0}' +
-    '.date-time{font-size:12px;color:#666;margin-top:4px}' +
-    '.summary{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}' +
-    '.sum-box{flex:1;min-width:100px;border:1px solid #ddd;border-radius:8px;padding:10px;text-align:center}' +
-    '.sum-num{font-size:26px;font-weight:700}' +
-    '.sum-lbl{font-size:11px;color:#666;margin-top:2px}' +
-    '.status-bar{background:' + statusColor + ';color:#fff;padding:10px 16px;border-radius:8px;text-align:center;font-weight:700;font-size:13px;margin-bottom:16px}' +
-    'table{width:100%;border-collapse:collapse;font-size:12px}' +
-    'th{background:#185FA5;color:#fff;padding:8px 10px;text-align:right;font-weight:600}' +
-    'td{padding:7px 10px;border-bottom:1px solid #eee}' +
-    'tr:hover{background:#f9f9f9}' +
-    '.footer{margin-top:20px;text-align:center;font-size:10px;color:#999;border-top:1px solid #ddd;padding-top:10px}' +
-    '@media print{body{margin:10px}.no-print{display:none}}' +
-    '</style></head><body>' +
-    '<div class="header">' +
-    '<div class="school-name">مدرسة حصة بنت محمد - حلقة ثانية</div>' +
-    '<div class="report-title">تقرير إخلاء المبنى - مناطق الإيواء الآمنة</div>' +
-    '<div class="date-time">' + dateStr + ' | ' + timeStr + '</div>' +
+  var reportHTML =
+    '<div style="text-align:center;border-bottom:2px solid #185FA5;padding-bottom:12px;margin-bottom:14px">' +
+    '<div style="font-size:16px;font-weight:700;color:#185FA5">مدرسة حصة بنت محمد - حلقة ثانية</div>' +
+    '<div style="font-size:13px;font-weight:700;margin:3px 0">تقرير إخلاء المبنى - مناطق الإيواء الآمنة</div>' +
+    '<div style="font-size:11px;color:#888">' + dateStr + ' | ' + timeStr + '</div></div>' +
+    '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">' +
+    '<div style="flex:1;min-width:80px;border:1px solid #ddd;border-radius:8px;padding:8px;text-align:center"><div style="font-size:22px;font-weight:700;color:#185FA5">' + s.total + '</div><div style="font-size:10px;color:#888">الإجمالي</div></div>' +
+    '<div style="flex:1;min-width:80px;border:1px solid #ddd;border-radius:8px;padding:8px;text-align:center"><div style="font-size:22px;font-weight:700;color:#27500A">' + s.present + '</div><div style="font-size:10px;color:#888">مرصودات</div></div>' +
+    '<div style="flex:1;min-width:80px;border:1px solid #ddd;border-radius:8px;padding:8px;text-align:center"><div style="font-size:22px;font-weight:700;color:#A32D2D">' + s.missing + '</div><div style="font-size:10px;color:#888">لم يُرصدن</div></div>' +
+    '<div style="flex:1;min-width:80px;border:1px solid #ddd;border-radius:8px;padding:8px;text-align:center"><div style="font-size:22px;font-weight:700;color:#854F0B">' + s.absent + '</div><div style="font-size:10px;color:#888">غائبات</div></div>' +
     '</div>' +
-    '<div class="summary">' +
-    '<div class="sum-box"><div class="sum-num" style="color:#185FA5">' + s.total + '</div><div class="sum-lbl">إجمالي الموظفات</div></div>' +
-    '<div class="sum-box"><div class="sum-num" style="color:#27500A">' + s.present + '</div><div class="sum-lbl">تم رصدهن</div></div>' +
-    '<div class="sum-box"><div class="sum-num" style="color:#A32D2D">' + s.missing + '</div><div class="sum-lbl">لم يُرصدن</div></div>' +
-    '<div class="sum-box"><div class="sum-num" style="color:#854F0B">' + s.absent + '</div><div class="sum-lbl">غائبات اليوم</div></div>' +
-    '</div>' +
-    '<div class="status-bar">' + statusText + '</div>' +
-    '<table>' +
-    '<thead><tr><th style="width:40px">#</th><th>اسم الموظفة</th><th>موقع التواجد</th><th style="width:120px">الحالة</th></tr></thead>' +
-    '<tbody>' + rows + '</tbody>' +
-    '</table>' +
-    '<div class="footer">فريق الأمن والسلامة - مدرسة حصة بنت محمد | تقرير إخلاء المبنى</div>' +
-    '</body></html>';
+    '<div style="background:' + statusColor + ';color:#fff;padding:8px 14px;border-radius:8px;text-align:center;font-weight:700;font-size:12px;margin-bottom:14px">' + statusText + '</div>' +
+    '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">' +
+    '<thead><tr>' +
+    '<th style="background:#185FA5;color:#fff;padding:8px;text-align:right">#</th>' +
+    '<th style="background:#185FA5;color:#fff;padding:8px;text-align:right">اسم الموظفة</th>' +
+    '<th style="background:#185FA5;color:#fff;padding:8px;text-align:right">موقع التواجد</th>' +
+    '<th style="background:#185FA5;color:#fff;padding:8px;text-align:center">الحالة</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    '<div style="margin-top:14px;text-align:center;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:10px">فريق الأمن والسلامة - مدرسة حصة بنت محمد</div>';
 
-  var win = window.open('', '_blank');
+  document.getElementById('report-content').innerHTML = reportHTML;
+  document.getElementById('print-modal').style.display = 'flex';
+}
+
+function closePrintModal(){
+  document.getElementById('print-modal').style.display = 'none';
+}
+
+function doPrint(){
+  var reportContent = document.getElementById('report-content').innerHTML;
+  // Create a hidden printable div
+  var printDiv = document.getElementById('print-frame');
+  if(!printDiv){
+    printDiv = document.createElement('div');
+    printDiv.id = 'print-frame';
+    document.body.appendChild(printDiv);
+  }
+  printDiv.innerHTML = '<div style="direction:rtl;font-family:Arial,sans-serif;padding:16px">' + reportContent + '</div>';
+  // Add print styles if not present
+  if(!document.getElementById('print-style')){
+    var style = document.createElement('style');
+    style.id = 'print-style';
+    style.textContent = '@media print{body > *:not(#print-frame){display:none!important}#print-frame{display:block!important}}@media screen{#print-frame{display:none}}';
+    document.head.appendChild(style);
+  }
+  try{ window.print(); } catch(e){ console.warn('Print blocked in iframe'); }
+}
+
+// ════════════════════════════════════════
+// UNIFIED FULL PDF DOWNLOAD REPORT
+// ════════════════════════════════════════
+function buildFullReportHTML(){
+  var now = new Date();
+  var dateStr = now.toLocaleDateString('ar',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  var timeStr = now.toLocaleTimeString('ar',{hour:'2-digit',minute:'2-digit'});
+
+  /* STAFF DATA */
+  var s = calcStats();
+  var zoneGroups = {};
+  ZONES.forEach(function(z){ zoneGroups[z.id] = []; });
+  zoneGroups['unregistered'] = [];
+  zoneGroups['absent'] = [];
+  TEACHERS.forEach(function(t){
+    if(t in state.absent)              zoneGroups['absent'].push(t);
+    else if(state.registered[t]){      var __zid2=(typeof state.registered[t]==='object')?state.registered[t].zone:state.registered[t]; zoneGroups[__zid2].push(t); }
+    else                               zoneGroups['unregistered'].push(t);
+  });
+
+  var staffRows = '';
+  var rowNum = 1;
+  var reportColorLegend = {};
+  ZONES.forEach(function(z){
+    var list = zoneGroups[z.id];
+    if(!list.length) return;
+    list.forEach(function(t,i){
+      var regEnt = state.registered[t];
+      var byUser = (regEnt && typeof regEnt==='object' && regEnt.by) ? regEnt.by : '';
+      var atTime = (regEnt && typeof regEnt==='object' && regEnt.at) ? fmtTime(regEnt.at) : '';
+      if(byUser) reportColorLegend[byUser] = true;
+      staffRows += '<tr><td class="num">'+ rowNum++ +'</td><td class="bold">'+ t +'</td>'
+        +'<td style="color:#1a5c1a">'+(i===0?z.name:'')+'</td>'
+        +'<td style="color:#185FA5;font-weight:700">'+ byUser +'</td>'
+        +'<td class="center green">\u2713 \u0645\u0631\u0635\u0648\u062f\u0629</td>'
+        +'<td class="center" style="color:#888;font-size:9pt">'+ atTime +'</td></tr>';
+    });
+  });
+  zoneGroups['unregistered'].forEach(function(t){
+    staffRows += '<tr class="rw"><td class="num">'+ rowNum++ +'</td><td class="bold">'+ t +'</td>'
+      +'<td style="color:#7a4100">\u0644\u0645 \u062a\u064f\u0631\u0635\u062f \u0628\u0639\u062f</td>'
+      +'<td></td><td class="center" style="color:#7a4100">\u26a0</td><td></td></tr>';
+  });
+  zoneGroups['absent'].forEach(function(t){
+    var absEnt2 = state.absent[t];
+    var absByUser2 = (absEnt2 && absEnt2.by) ? absEnt2.by : '';
+    staffRows += '<tr class="ra"><td class="num">'+ rowNum++ +'</td><td class="bold">'+ t +'</td>'
+      +'<td style="color:#9b1c1c">\u063a\u0627\u0626\u0628\u0629 \u0627\u0644\u064a\u0648\u0645</td>'
+      +'<td style="color:#185FA5;font-weight:700">'+ absByUser2 +'</td>'
+      +'<td class="center" style="color:#9b1c1c">\u2014</td><td></td></tr>';
+  });
+
+  // Build color legend HTML for report
+  var colorLegendHtml = '';
+  var legendKeys = Object.keys(reportColorLegend);
+  if(legendKeys.length > 0){
+    colorLegendHtml = '<div style="margin:8px 0;padding:8px 12px;background:#f8f9fa;border-radius:6px;border:1px solid #e0e0e0;font-size:9pt">'
+      + '<span style="font-weight:700;color:#333">دليل الألوان (من سجّل الحضور): </span>';
+    legendKeys.forEach(function(u){
+      var uc = getUserColor(u);
+      if(uc){
+        colorLegendHtml += '<span style="display:inline-block;background:'+uc.bg+';color:'+uc.text+';border:1px solid '+uc.border+';border-radius:6px;padding:2px 8px;margin:2px 4px;font-weight:700">● '+u+'</span>';
+      }
+    });
+    colorLegendHtml += '</div>';
+  }
+  var staffStatusBg = s.missing===0 ? '#1a5c1a' : '#9b1c1c';
+  var staffStatusTxt = s.missing===0
+    ? '\u2713 \u0627\u0643\u062a\u0645\u0644 \u0627\u0644\u0625\u062d\u0635\u0627\u0621 \u2014 \u062c\u0645\u064a\u0639 \u0627\u0644\u0645\u0648\u0638\u0641\u0627\u062a \u062a\u0645 \u0631\u0635\u062f\u0647\u0646'
+    : '\u26a0 \u0644\u0627 \u064a\u0632\u0627\u0644 ' + s.missing + ' \u0645\u0648\u0638\u0641\u0629 \u0644\u0645 \u064a\u064f\u0631\u0635\u062f\u0646';
+
+  /* BUS DATA */
+  var bp = busState.present ? Object.keys(busState.present).length : 0;
+  var ba = BUS_SUPERVISORS.length - bp;
+  var busRows = '';
+  BUS_SUPERVISORS.forEach(function(name,i){
+    var isP = !!(busState.present && busState.present[name]);
+    var busEnt = busState.present && busState.present[name];
+    var busByUser = (busEnt && busEnt.by) ? busEnt.by : '';
+    var busAt = (busEnt && busEnt.at) ? fmtTime(busEnt.at) : '';
+    busRows += '<tr class="'+(isP?'':'ra')+'">'
+      +'<td class="num">'+(i+1)+'</td>'
+      +'<td class="bold">'+name+'</td>'
+      +'<td style="color:#185FA5;font-weight:700">'+busByUser+'</td>'
+      +'<td class="center" style="font-weight:700;color:'+(isP?'#1a5c1a':'#9b1c1c')+'">'
+      +(isP?'\u2713 \u062d\u0627\u0636\u0631\u0629':'\u2717 \u063a\u0627\u0626\u0628\u0629')+'</td>'
+      +'<td class="center" style="color:#888;font-size:9pt">'+busAt+'</td></tr>';
+  });
+
+  /* STUDENTS DATA */
+  var totalStudentsAll=0, totalPresAll=0, totalAbsAll=0, classCount=0, classDoneCount=0;
+  var gradeColors={5:'#6A1B9A',6:'#2E7D32',7:'#1565C0',8:'#E65100'};
+  var gradeNames={5:'\u0627\u0644\u0635\u0641 \u0627\u0644\u062e\u0627\u0645\u0633',6:'\u0627\u0644\u0635\u0641 \u0627\u0644\u0633\u0627\u062f\u0633',7:'\u0627\u0644\u0635\u0641 \u0627\u0644\u0633\u0627\u0628\u0639',8:'\u0627\u0644\u0635\u0641 \u0627\u0644\u062b\u0627\u0645\u0646'};
+  var allCols = document.querySelectorAll('.cls-col');
+  var gradeData={};
+  allCols.forEach(function(col){
+    var grade=parseInt(col.getAttribute('data-grade'));
+    var sec=col.getAttribute('data-sec');
+    var total=parseInt(col.getAttribute('data-total'));
+    var absInp=col.querySelector('.abs-inp');
+    var prsInp=col.querySelector('.prs-inp');
+    var absVal=absInp&&absInp.value!==''?parseInt(absInp.value):null;
+    var prsVal=prsInp&&prsInp.value!==''?parseInt(prsInp.value):null;
+    if(!gradeData[grade]) gradeData[grade]=[];
+    gradeData[grade].push({sec:sec,total:total,absVal:absVal,prsVal:prsVal});
+    totalStudentsAll+=total; classCount++;
+    if(absVal!==null&&prsVal!==null){totalPresAll+=prsVal;totalAbsAll+=absVal;if(absVal+prsVal===total)classDoneCount++;}
+  });
+
+  var studentTableRows='';
+  [5,6,7,8].forEach(function(g){
+    var gd=gradeData[g]; if(!gd) return;
+    var color=gradeColors[g]; var gName=gradeNames[g];
+    studentTableRows+='<tr><td colspan="5" style="background:'+color+';color:#fff;font-weight:700;font-size:11px;padding:5px 8px">'+gName+'</td></tr>';
+    gd.forEach(function(cls){
+      var stTxt,stColor,rCls='';
+      if(cls.absVal!==null&&cls.prsVal!==null){
+        var sum=cls.absVal+cls.prsVal;
+        if(sum===cls.total){stTxt='\u0627\u0643\u062a\u0645\u0644 \u2713';stColor='#1a5c1a';}
+        else if(sum>cls.total){stTxt='\u062a\u062c\u0627\u0648\u0632!';stColor='#9b1c1c';rCls='ra';}
+        else{stTxt=sum+'/'+cls.total;stColor='#7a4100';rCls='rw';}
+      } else{stTxt='\u0644\u0645 \u064a\u064f\u062f\u062e\u0644';stColor='#999';}
+      studentTableRows+='<tr class="'+rCls+'">'
+        +'<td class="center bold" style="color:'+color+'">G'+g+'-'+cls.sec+'</td>'
+        +'<td class="center">'+cls.total+'</td>'
+        +'<td class="center green bold">'+(cls.prsVal!==null?cls.prsVal:'\u2014')+'</td>'
+        +'<td class="center red bold">'+(cls.absVal!==null?cls.absVal:'\u2014')+'</td>'
+        +'<td class="center" style="color:'+stColor+';font-weight:700">'+stTxt+'</td>'
+        +'</tr>';
+    });
+  });
+
+  /* CSS */
+  var CSS =
+    '@page{size:A4 portrait;margin:14mm 12mm 16mm 12mm}'
+    +'*{box-sizing:border-box}'
+    +'body{font-family:Arial,sans-serif;direction:rtl;margin:0;padding:0;font-size:10.5px;color:#1a1a1a;line-height:1.35}'
+    +'.page{width:100%;min-height:257mm;display:flex;flex-direction:column;page-break-after:always}'
+    +'.page:last-child{page-break-after:auto}'
+    +'.ph{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #185FA5;padding-bottom:7px;margin-bottom:9px}'
+    +'.ph-left .school{font-size:13px;font-weight:700;color:#185FA5}'
+    +'.ph-left .sub{font-size:9.5px;color:#666;margin-top:2px}'
+    +'.ph-right{font-size:9px;color:#888;text-align:left;white-space:nowrap;line-height:1.6}'
+    +'.stat-row{display:flex;gap:5px;margin-bottom:7px}'
+    +'.sbox{flex:1;border:1.5px solid #ddd;border-radius:5px;padding:5px 4px;text-align:center}'
+    +'.sbox-n{font-size:17px;font-weight:700}'
+    +'.sbox-l{font-size:8px;color:#666;margin-top:1px}'
+    +'.banner{padding:5px 10px;border-radius:4px;text-align:center;font-weight:700;font-size:10px;margin-bottom:6px;color:#fff}'
+    +'.sh{padding:6px 10px;font-size:11px;font-weight:700;color:#fff;margin-bottom:0}'
+    +'table{width:100%;border-collapse:collapse;font-size:10px}'
+    +'th{padding:5px 6px;text-align:right;color:#fff;font-weight:700;font-size:9.5px}'
+    +'td{padding:3.5px 6px;border-bottom:1px solid #ececec;vertical-align:middle}'
+    +'tr.rw td{background:#FFFDE7}'
+    +'tr.ra td{background:#FFF5F5}'
+    +'.num{color:#bbb;text-align:center;width:22px;font-size:9px}'
+    +'.bold{font-weight:600}'
+    +'.center{text-align:center}'
+    +'.green{color:#1a5c1a}'
+    +'.red{color:#9b1c1c}'
+    +'.pf{margin-top:auto;padding-top:6px;border-top:1.5px solid #e0e0e0;display:flex;align-items:center;justify-content:space-between;font-size:8px;color:#aaa}'
+    +'.pf-credit{font-style:italic}'
+    +'@media print{.page{page-break-after:always;min-height:0}.page:last-child{page-break-after:auto}}';
+
+  function footer(n,total){
+    return '<div class="pf">'
+      +'<span>\u0641\u0631\u064a\u0642 \u0627\u0644\u0623\u0645\u0646 \u0648\u0627\u0644\u0633\u0644\u0627\u0645\u0629 \u2014 \u0645\u062f\u0631\u0633\u0629 \u062d\u0635\u0629 \u0628\u0646\u062a \u0645\u062d\u0645\u062f \u062d2 &nbsp;|\u00a0 '+dateStr+' &nbsp; '+timeStr+'</span>'
+      +'<span class="pf-credit">\u0641\u0643\u0631\u0629 \u0648\u062a\u0635\u0645\u064a\u0645: \u062e\u062f\u064a\u062c\u0629 \u0633\u064a\u0641 \u0627\u0644\u064a\u062d\u064a\u0627\u0626\u064a</span>'
+      +'<span>\u0635\u0641\u062d\u0629 '+n+' / '+total+'</span>'
+      +'</div>';
+  }
+
+  function pageHeader(subtitle){
+    return '<div class="ph">'
+      +'<div class="ph-left">'
+      +'<div class="school">&#127982; \u0645\u062f\u0631\u0633\u0629 \u062d\u0635\u0629 \u0628\u0646\u062a \u0645\u062d\u0645\u062f \u2014 \u062d\u0644\u0642\u0629 \u062b\u0627\u0646\u064a\u0629</div>'
+      +'<div class="sub">'+subtitle+'</div>'
+      +'</div>'
+      +'<div class="ph-right">'+dateStr+'<br>'+timeStr+'</div>'
+      +'</div>';
+  }
+
+  /* PAGE 1 — STAFF */
+  var page1 = '<div class="page">'
+    +pageHeader('\u062a\u0642\u0631\u064a\u0631 \u0627\u0644\u0625\u062e\u0644\u0627\u0621 \u0627\u0644\u0634\u0627\u0645\u0644 \u2014 \u0643\u0634\u0641 \u0627\u0644\u0645\u0648\u0638\u0641\u0627\u062a \u0648\u0645\u0646\u0627\u0637\u0642 \u0627\u0644\u062a\u0648\u0627\u062c\u062f')
+    +'<div class="stat-row">'
+      +'<div class="sbox" style="border-color:#185FA5"><div class="sbox-n" style="color:#185FA5">'+s.total+'</div><div class="sbox-l">\u0627\u0644\u0625\u062c\u0645\u0627\u0644\u064a</div></div>'
+      +'<div class="sbox" style="border-color:#1a5c1a"><div class="sbox-n" style="color:#1a5c1a">'+s.present+'</div><div class="sbox-l">\u062a\u0645 \u0631\u0635\u062f\u0647\u0646</div></div>'
+      +'<div class="sbox" style="border-color:#7a4100"><div class="sbox-n" style="color:#7a4100">'+s.missing+'</div><div class="sbox-l">\u0644\u0645 \u064a\u064f\u0631\u0635\u062f\u0646</div></div>'
+      +'<div class="sbox" style="border-color:#9b1c1c"><div class="sbox-n" style="color:#9b1c1c">'+s.absent+'</div><div class="sbox-l">\u063a\u0627\u0626\u0628\u0627\u062a</div></div>'
+    +'</div>'
+    +'<div class="banner" style="background:'+staffStatusBg+'">'+staffStatusTxt+'</div>'
+    +'<div class="sh" style="background:#185FA5">&#128119; \u0623\u0648\u0644\u0627\u064b: \u0643\u0634\u0641 \u0627\u0644\u0645\u0648\u0638\u0641\u0627\u062a \u0648\u0645\u0646\u0627\u0637\u0642 \u0627\u0644\u062a\u0648\u0627\u062c\u062f</div>'
+    +'<table><thead><tr>'
+      +'<th style="background:#185FA5;width:22px;text-align:center">#</th>'
+      +'<th style="background:#185FA5">\u0627\u0633\u0645 \u0627\u0644\u0645\u0648\u0638\u0641\u0629</th>'
+      +'<th style="background:#185FA5">\u0645\u0646\u0637\u0642\u0629 \u0627\u0644\u062a\u0648\u0627\u062c\u062f</th>'
+      +'<th style="background:#185FA5;text-align:center">\u0627\u0644\u062d\u0627\u0644\u0629</th>'
+    +'</tr></thead><tbody>'+staffRows+'</tbody></table>'
+    +footer(1,3)
+    +'</div>';
+
+  /* PAGE 2 — BUS */
+  var page2 = '<div class="page">'
+    +pageHeader('\u062a\u0642\u0631\u064a\u0631 \u0627\u0644\u0625\u062e\u0644\u0627\u0621 \u0627\u0644\u0634\u0627\u0645\u0644 \u2014 \u0643\u0634\u0641 \u0645\u0634\u0631\u0641\u0627\u062a \u0627\u0644\u0628\u0627\u0635')
+    +'<div class="stat-row">'
+      +'<div class="sbox" style="border-color:#854F0B"><div class="sbox-n" style="color:#854F0B">'+BUS_SUPERVISORS.length+'</div><div class="sbox-l">\u0627\u0644\u0625\u062c\u0645\u0627\u0644\u064a</div></div>'
+      +'<div class="sbox" style="border-color:#1a5c1a"><div class="sbox-n" style="color:#1a5c1a">'+bp+'</div><div class="sbox-l">\u062d\u0627\u0636\u0631\u0627\u062a</div></div>'
+      +'<div class="sbox" style="border-color:#9b1c1c"><div class="sbox-n" style="color:#9b1c1c">'+ba+'</div><div class="sbox-l">\u063a\u0627\u0626\u0628\u0627\u062a</div></div>'
+    +'</div>'
+    +'<div class="banner" style="background:'+(ba===0?'#1a5c1a':'#9b1c1c')+'">'
+      +(ba===0?'\u2713 \u062c\u0645\u064a\u0639 \u0645\u0634\u0631\u0641\u0627\u062a \u0627\u0644\u0628\u0627\u0635 \u062d\u0627\u0636\u0631\u0627\u062a':'\u26a0 '+ba+' \u0645\u0634\u0631\u0641\u0629 \u0628\u0627\u0635 \u063a\u0627\u0626\u0628\u0629')
+    +'</div>'
+    +'<div class="sh" style="background:#854F0B">&#128652; \u062b\u0627\u0646\u064a\u0627\u064b: \u0643\u0634\u0641 \u0645\u0634\u0631\u0641\u0627\u062a \u0627\u0644\u0628\u0627\u0635</div>'
+    +'<table><thead><tr>'
+      +'<th style="background:#854F0B;width:22px;text-align:center">#</th>'
+      +'<th style="background:#854F0B">\u0627\u0633\u0645 \u0627\u0644\u0645\u0634\u0631\u0641\u0629</th>'
+      +'<th style="background:#854F0B;text-align:center">\u0627\u0644\u062d\u0627\u0644\u0629</th>'
+    +'</tr></thead><tbody>'+busRows+'</tbody></table>'
+    +footer(2,3)
+    +'</div>';
+
+  /* PAGE 3 — STUDENTS */
+  var page3 = '<div class="page">'
+    +pageHeader('\u062a\u0642\u0631\u064a\u0631 \u0627\u0644\u0625\u062e\u0644\u0627\u0621 \u0627\u0644\u0634\u0627\u0645\u0644 \u2014 \u0625\u062d\u0635\u0627\u0621 \u0627\u0644\u0637\u0627\u0644\u0628\u0627\u062a \u062d\u0633\u0628 \u0627\u0644\u0634\u0639\u0628\u0629')
+    +'<div class="stat-row">'
+      +'<div class="sbox" style="border-color:#5B21B6"><div class="sbox-n" style="color:#5B21B6">'+totalStudentsAll+'</div><div class="sbox-l">\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0637\u0627\u0644\u0628\u0627\u062a</div></div>'
+      +'<div class="sbox" style="border-color:#1a5c1a"><div class="sbox-n" style="color:#1a5c1a">'+totalPresAll+'</div><div class="sbox-l">\u062d\u0627\u0636\u0631\u0627\u062a</div></div>'
+      +'<div class="sbox" style="border-color:#9b1c1c"><div class="sbox-n" style="color:#9b1c1c">'+totalAbsAll+'</div><div class="sbox-l">\u063a\u0627\u0626\u0628\u0627\u062a</div></div>'
+      +'<div class="sbox" style="border-color:#555"><div class="sbox-n" style="color:#333">'+classDoneCount+'/'+classCount+'</div><div class="sbox-l">\u0634\u0639\u0628 \u0645\u0643\u062a\u0645\u0644\u0629</div></div>'
+    +'</div>'
+    +'<div class="sh" style="background:#5B21B6">&#127979; \u062b\u0627\u0644\u062b\u0627\u064b: \u0625\u062d\u0635\u0627\u0621 \u0627\u0644\u0637\u0627\u0644\u0628\u0627\u062a \u062d\u0633\u0628 \u0627\u0644\u0634\u0639\u0628\u0629</div>'
+    +'<table><thead><tr>'
+      +'<th style="background:#5B21B6;text-align:center">\u0627\u0644\u0634\u0639\u0628\u0629</th>'
+      +'<th style="background:#5B21B6;text-align:center">\u0627\u0644\u0625\u062c\u0645\u0627\u0644\u064a</th>'
+      +'<th style="background:#5B21B6;text-align:center">\u062d\u0627\u0636\u0631\u0627\u062a</th>'
+      +'<th style="background:#5B21B6;text-align:center">\u063a\u0627\u0626\u0628\u0627\u062a</th>'
+      +'<th style="background:#5B21B6;text-align:center">\u0627\u0644\u062d\u0627\u0644\u0629</th>'
+    +'</tr></thead><tbody>'+studentTableRows+'</tbody></table>'
+    +footer(3,3)
+    +'</div>';
+
+  return '<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8">'
+    +'<title>\u062a\u0642\u0631\u064a\u0631 \u0625\u062e\u0644\u0627\u0621 - \u0645\u062f\u0631\u0633\u0629 \u062d\u0635\u0629 \u0628\u0646\u062a \u0645\u062d\u0645\u062f</title>'
+    +'<style>'+CSS+'</style>'
+    +'</head><body>'
+    +page1+page2+page3
+    +'</body></html>';
+}
+
+function downloadPdfReport(){
+  var now = new Date();
+  // Build filename: تقرير-اخلاء-YYYY-MM-DD-HH-MM.pdf
+  var yyyy = now.getFullYear();
+  var mm = String(now.getMonth()+1).padStart(2,'0');
+  var dd = String(now.getDate()).padStart(2,'0');
+  var hh = String(now.getHours()).padStart(2,'0');
+  var min = String(now.getMinutes()).padStart(2,'0');
+  var filename = 'تقرير-اخلاء-' + yyyy + '-' + mm + '-' + dd + '_' + hh + '-' + min;
+
+  var html = buildFullReportHTML();
+
+  // Open in new window and trigger print-to-PDF
+  var win = window.open('', '_blank', 'width=900,height=700');
+  if(!win){
+    // Fallback: download as HTML if popup blocked
+    var blob = new Blob([html], {type:'text/html;charset=utf-8'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename + '.html';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    alert('تم تنزيل التقرير كملف HTML. لحفظه كـ PDF: افتح الملف في المتصفح ثم اختر طباعة ← حفظ كـ PDF');
+    return;
+  }
   win.document.write(html);
   win.document.close();
-  win.focus();
-  setTimeout(function(){ win.print(); }, 500);
+  win.document.title = filename;
+  // Auto-trigger print dialog for "Save as PDF"
+  win.onload = function(){
+    setTimeout(function(){
+      win.focus();
+      win.print();
+    }, 400);
+  };
+}
+
+function printFullReport(){
+  downloadPdfReport();
+}
+
+// ════════════════════════════════════════
+// AUDIT LOG VIEWER FUNCTIONS
+// ════════════════════════════════════════
+var _auditData = [];
+
+function loadAuditLog(){
+  if(syncEnabled && db){
+    // Load last 100 entries from Firebase
+    db.ref('hessa_school/audit').orderByChild('at').limitToLast(100).once('value', function(snap){
+      _auditData = [];
+      snap.forEach(function(child){
+        _auditData.unshift(child.val()); // newest first
+      });
+      renderAuditLog();
+      // Populate user filter
+      var users = [...new Set(_auditData.map(function(e){ return e.by; }).filter(Boolean))];
+      var sel = document.getElementById('audit-filter-user');
+      if(sel){
+        sel.innerHTML = '<option value="">كل المستخدمين</option>' +
+          users.map(function(u){ return '<option value="'+u+'">'+u+'</option>'; }).join('');
+      }
+    });
+  } else {
+    // Load from localStorage
+    try{
+      _auditData = JSON.parse(localStorage.getItem('hessa_audit_local')||'[]');
+    }catch(e){ _auditData = []; }
+    renderAuditLog();
+  }
+}
+
+var ACTION_LABELS = {
+  'register':         {label:'تسجيل في منطقة',    color:'#27500A', icon:'📍'},
+  'unregister':       {label:'إلغاء تسجيل',        color:'#854F0B', icon:'↩️'},
+  'absent':           {label:'تسجيل غياب',          color:'#A32D2D', icon:'🔴'},
+  'unabsent':         {label:'إلغاء غياب',          color:'#185FA5', icon:'🔵'},
+  'bus_present':      {label:'حضور مشرفة باص',      color:'#27500A', icon:'🚌✓'},
+  'bus_absent':       {label:'غياب مشرفة باص',      color:'#A32D2D', icon:'🚌✗'},
+  'reset_evacuation': {label:'إعادة تعيين الإخلاء', color:'#A32D2D', icon:'🔄'},
+  'reset_bus':        {label:'إعادة تعيين الباص',   color:'#A32D2D', icon:'🔄'}
+};
+
+function renderAuditLog(){
+  var list = document.getElementById('audit-list');
+  if(!list) return;
+  var filterUser   = (document.getElementById('audit-filter-user')   || {}).value || '';
+  var filterAction = (document.getElementById('audit-filter-action') || {}).value || '';
+  var filtered = _auditData.filter(function(e){
+    if(filterUser   && e.by     !== filterUser)   return false;
+    if(filterAction && e.action !== filterAction) return false;
+    return true;
+  });
+  if(!filtered.length){
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:#aaa;font-size:12px">لا توجد عمليات مسجلة</div>';
+    return;
+  }
+  list.innerHTML = filtered.map(function(e){
+    var info = ACTION_LABELS[e.action] || {label: e.action, color:'#555', icon:'📋'};
+    var zoneStr = e.zone ? ' ← ' + e.zone : '';
+    return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 14px;border-bottom:1px solid #f0f0f0">'
+      + '<span style="font-size:16px;flex-shrink:0;margin-top:1px">' + info.icon + '</span>'
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:12px;font-weight:700;color:' + info.color + '">' + info.label + '</div>'
+      + '<div style="font-size:11px;color:#333;margin-top:1px">' + (e.target||'') + zoneStr + '</div>'
+      + '<div style="font-size:10px;color:#888;margin-top:2px">بواسطة: <strong>' + (e.by||'غير معروف') + '</strong> — ' + fmtTime(e.at) + '</div>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+function clearLocalAudit(){
+  try{ localStorage.removeItem('hessa_audit_local'); }catch(e){}
+  _auditData = [];
+  renderAuditLog();
+}
+
+// ════════════════════════════════════════
+// PRESENCE INDICATOR (online users)
+// ════════════════════════════════════════
+function startPresenceUpdater(){
+  if(!syncEnabled || !db || !currentUser) return;
+  // Update presence every 30 seconds
+  setInterval(function(){
+    if(syncEnabled && db && currentUser){
+      db.ref('hessa_school/presence/' + encodeFirebaseKey(currentUser))
+        .update({ at: Date.now(), online: true });
+    }
+  }, 30000);
+  // Listen to online users
+  db.ref('hessa_school/presence').on('value', function(snap){
+    var users = [];
+    var now = Date.now();
+    snap.forEach(function(child){
+      var d = child.val();
+      // Consider online if updated in last 2 minutes
+      if(d && d.online && d.at && (now - d.at) < 120000){
+        users.push(d.name || decodeFirebaseKey(child.key));
+      }
+    });
+    var el = document.getElementById('online-users');
+    if(el){
+      if(users.length > 0){
+        var dotsHtml = users.map(function(u){
+          var uc = getUserColor(u);
+          var dotStyle = uc ? 'display:inline-block;width:8px;height:8px;border-radius:50%;background:'+uc.border+';margin-left:3px;vertical-align:middle;' : '';
+          var nameStyle = uc ? 'color:'+uc.text+';font-weight:700;' : '';
+          return '<span style="'+nameStyle+'"><span style="'+dotStyle+'"></span> '+u+'</span>';
+        }).join('<span style="color:#aaa"> ، </span>');
+        el.innerHTML = '● متصل الآن: ' + dotsHtml;
+        el.style.display = 'block';
+      } else {
+        el.style.display = 'none';
+      }
+    }
+  });
 }
 </script>
+
 </body>
 </html>
