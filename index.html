@@ -439,7 +439,7 @@ img{-webkit-user-drag:none;user-select:none}
 .prog{height:5px;background:#e0e0e0;border-radius:3px;overflow:hidden;margin-bottom:10px}
 .pf{height:100%;border-radius:3px;transition:width 0.4s;background:#A32D2D}
 .tabs{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap}
-.tab{padding:8px 13px;border:1px solid #ccc;border-radius:8px;font-size:12px;cursor:pointer;background:#fff;color:#333;min-height:40px}
+.tab{padding:7px 11px;border:1px solid #ccc;border-radius:8px;font-size:12px;cursor:pointer;background:#fff;color:#333;min-height:44px;line-height:1.3;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center}
 .tab.on{background:#185FA5;color:#fff;border-color:#185FA5}
 .floor-btns{display:flex;gap:6px;margin-bottom:8px}
 .fb{padding:8px 16px;border:1px solid #ccc;border-radius:8px;font-size:12px;cursor:pointer;background:#fff;color:#333;min-height:40px}
@@ -496,28 +496,28 @@ input[type=text]{border:1px solid #ccc;border-radius:8px;padding:7px 10px;font-s
 </div>
 <div class="hdr">
   <div>
-    <div class="ht">مدرسة حصة بنت محمد ح2</div>
-    <div class="hs">نظام إخلاء المبنى &mdash; فريق الأمن والسلامة</div>
+    <div class="ht" id="hdr-title">مدرسة حصة بنت محمد ح2</div>
+    <div class="hs" id="hdr-sub">نظام إخلاء المبنى &mdash; فريق الأمن والسلامة</div>
     <div style="font-size:10px;color:#aaa;margin-top:2px">تصميم: خديجة سيف اليحيائي &nbsp;|&nbsp; <span id="sync-status">🔴 غير متزامن</span> &nbsp;<span id="last-sync-time" style="color:#aaa;font-size:9px"></span></div>
     <span id="current-user-badge" style="display:none;font-size:10px;background:#E6F1FB;color:#0C447C;border:1px solid #85B7EB;border-radius:8px;padding:2px 8px;margin-top:3px;font-weight:700"></span>
     <div id="online-users" style="display:none;font-size:9px;color:#27500A;background:#EAF3DE;border-radius:6px;padding:2px 8px;margin-top:2px;border:1px solid #9FE1CB"></div>
   </div>
   <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
     <span id="mb" class="bdg bd">جارٍ الإخلاء</span>
-    <button onclick="downloadPdfReport()" style="background:#185FA5;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">&#128462; تحميل التقرير PDF</button>
+    <button onclick="downloadPdfReport()" id="pdf-btn" style="background:#185FA5;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📄 تحميل التقرير PDF</button>
   </div>
 </div>
 
 <div class="stats">
-  <div class="stat"><div class="sn nb" id="st">59</div><div class="sl">إجمالي الموظفات</div></div>
-  <div class="stat"><div class="sn ng" id="sp">0</div><div class="sl">تم رصدهن</div></div>
-  <div class="stat"><div class="sn nr" id="sm">59</div><div class="sl">لم يُرصدن</div></div>
-  <div class="stat"><div class="sn na" id="sa">0</div><div class="sl">غائبات اليوم</div></div>
+  <div class="stat"><div class="sn nb" id="st">59</div><div class="sl" id="lbl-total">إجمالي الموظفات</div></div>
+  <div class="stat"><div class="sn ng" id="sp">0</div><div class="sl" id="lbl-present">تم رصدهن</div></div>
+  <div class="stat"><div class="sn nr" id="sm">59</div><div class="sl" id="lbl-missing">لم يُرصدن</div></div>
+  <div class="stat"><div class="sn na" id="sa">0</div><div class="sl" id="lbl-absent">غائبات اليوم</div></div>
   <div class="stat" style="grid-column:span 4;background:#E6F1FB;border:1px solid #85B7EB">
     <div style="display:flex;align-items:center;justify-content:center;gap:10px">
-      <span style="font-size:12px;color:#0C447C;font-weight:700">عدد الزوار:</span>
+      <span id="lbl-visitors" style="font-size:12px;color:#0C447C;font-weight:700">👥 عدد الزوار:</span>
       <input type="number" id="visitors-count" min="0" value="0" oninput="saveVisitors()" style="width:70px;padding:4px 8px;border:1.5px solid #85B7EB;border-radius:6px;font-size:14px;font-weight:700;text-align:center;color:#0C447C;background:#fff">
-      <span style="font-size:11px;color:#888">زائر</span>
+      <span id="lbl-visitor-unit" style="font-size:11px;color:#888">زائر</span>
     </div>
   </div>
 </div>
@@ -525,20 +525,20 @@ input[type=text]{border:1px solid #ccc;border-radius:8px;padding:7px 10px;font-s
 
 <!-- Backup employee input -->
 <div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-  <span style="font-size:12px;color:#1a1a1a;font-weight:700;white-space:nowrap">&#128100; موظفة احتياط:</span>
+  <span id="lbl-backup" style="font-size:12px;color:#1a1a1a;font-weight:700;white-space:nowrap">👤 موظفة احتياط:</span>
   <input type="text" id="backup-employee-inp" placeholder="اكتبي اسم الموظفة الاحتياط..." style="flex:1;min-width:160px;padding:6px 10px;border:1.5px solid #ccc;border-radius:6px;font-size:12px;direction:rtl;text-align:right">
-  <button onclick="addBackupEmployee()" style="background:#185FA5;color:#fff;border:none;border-radius:6px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">&#10010; إضافة للقائمة</button>
+  <button onclick="addBackupEmployee()" id="btn-add-backup" style="background:#185FA5;color:#fff;border:none;border-radius:6px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">✚ إضافة للقائمة</button>
   <div id="backup-employees-list" style="width:100%;display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div>
 </div>
 
 <div class="tabs">
-  <button class="tab on" onclick="setView('map')">الخريطة التفاعلية</button>
-  <button class="tab" onclick="setView('all')">جميع الموظفات</button>
-  <button class="tab" onclick="setView('absent')">الغائبات</button>
-  <button class="tab" onclick="setView('reset')">إعادة تعيين</button>
-  <button class="tab" onclick="setView('bus')" style="background:#854F0B;color:#fff;border-color:#854F0B">&#128652; مشرفات الباص</button>
-  <button class="tab" onclick="setView('students')" style="background:#7B1FA2;color:#fff;border-color:#7B1FA2">&#127891; الطالبات</button>
-  <button class="tab" onclick="setView('audit')" style="background:#37474F;color:#fff;border-color:#37474F">&#128203; سجل العمليات</button>
+  <button class="tab on" id="tab-map" onclick="setView('map')">🗺️ الخريطة<br><span style="font-size:9px;opacity:0.8">Interactive Map</span></button>
+  <button class="tab" id="tab-all" onclick="setView('all')">👩‍💼 الموظفات<br><span style="font-size:9px;opacity:0.8">All Staff</span></button>
+  <button class="tab" id="tab-absent" onclick="setView('absent')">🏠 الغائبات<br><span style="font-size:9px;opacity:0.8">Absent</span></button>
+  <button class="tab" id="tab-reset" onclick="setView('reset')">🔄 إعادة تعيين<br><span style="font-size:9px;opacity:0.8">Reset</span></button>
+  <button class="tab" id="tab-bus" onclick="setView('bus')" style="background:#854F0B;color:#fff;border-color:#854F0B">🚌 مشرفات الباص<br><span style="font-size:9px;opacity:0.8">Bus Supervisors</span></button>
+  <button class="tab" id="tab-students" onclick="setView('students')" style="background:#7B1FA2;color:#fff;border-color:#7B1FA2">🎓 الطالبات<br><span style="font-size:9px;opacity:0.8">Students</span></button>
+  <button class="tab" id="tab-audit" onclick="setView('audit')" style="background:#37474F;color:#fff;border-color:#37474F">📋 سجل العمليات<br><span style="font-size:9px;opacity:0.8">Audit Log</span></button>
 </div>
 
 <div id="v-map">
@@ -560,6 +560,9 @@ input[type=text]{border:1px solid #ccc;border-radius:8px;padding:7px 10px;font-s
     <div class="panel">
       <div class="pt" id="zt"></div>
       <div class="ps" id="zs"></div>
+      <div style="margin-bottom:8px">
+        <input type="text" id="zone-search" placeholder="🔍 بحث عن موظفة..." oninput="filterZoneGrid()" style="width:100%;padding:7px 12px;border:1.5px solid #85B7EB;border-radius:8px;font-size:12px;background:#fff;color:#333;direction:rtl;box-sizing:border-box">
+      </div>
       <div class="tgrid" id="zg"></div>
     </div>
   </div>
@@ -703,14 +706,14 @@ input[type=text]{border:1px solid #ccc;border-radius:8px;padding:7px 10px;font-s
 
 <div id="v-reset" style="display:none">
   <div class="panel">
-    <div class="pt">إعادة تعيين الإخلاء</div>
-    <div class="ps">يمسح بيانات التسجيل والغائبات فقط &mdash; قائمة الموظفات تبقى كما هي</div>
-    <button class="btn btnd" style="width:100%;padding:10px;margin-top:8px;font-size:13px;font-weight:700" onclick="doReset()">إعادة تعيين الآن</button>
+    <div class="pt">🔄 إعادة تعيين الإخلاء</div>
+    <div class="ps">يمسح بيانات التسجيل، الغائبات، <strong>وعدد الزوار</strong> &mdash; قائمة الموظفات تبقى كما هي</div>
+    <button class="btn btnd" style="width:100%;padding:10px;margin-top:8px;font-size:13px;font-weight:700" onclick="doReset()">إعادة تعيين الآن &mdash; Reset Now</button>
   </div>
   <div class="panel" style="margin-top:10px">
-    <div class="pt">&#128438; طباعة التقرير الشامل</div>
-    <div class="ps">يطبع تقريراً شاملاً يتضمن: الموظفات ومناطق تواجدهن، مشرفات الباص، وإحصاء الطالبات حسب الشعبة</div>
-    <button onclick="printFullReport()" style="width:100%;padding:10px;margin-top:8px;background:#185FA5;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">&#128438; طباعة التقرير الشامل</button>
+    <div class="pt">📄 تحميل التقرير الشامل</div>
+    <div class="ps">يُصدر تقريراً شاملاً يتضمن: الموظفات ومناطق تواجدهن، مشرفات الباص، وإحصاء الطالبات حسب الشعبة</div>
+    <button onclick="downloadPdfReport()" style="width:100%;padding:10px;margin-top:8px;background:#185FA5;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">📄 تحميل التقرير PDF</button>
   </div>
 </div>
 
@@ -782,23 +785,32 @@ input[type=text]{border:1px solid #ccc;border-radius:8px;padding:7px 10px;font-s
 
 <!-- Login Modal -->
 <div id="login-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:14px;padding:28px 22px;max-width:360px;width:92%;margin:auto;text-align:center;direction:rtl;box-shadow:0 8px 32px rgba(0,0,0,0.25)">
-    <div style="font-size:36px;margin-bottom:8px">🏫</div>
-    <div style="font-size:17px;font-weight:700;color:#185FA5;margin-bottom:4px">نظام إخلاء مدرسة حصة بنت محمد</div>
-    <div style="font-size:12px;color:#888;margin-bottom:18px">يرجى اختيار اسمك للمتابعة</div>
+  <div style="background:#fff;border-radius:16px;padding:28px 22px;max-width:380px;width:92%;margin:auto;text-align:center;direction:rtl;box-shadow:0 8px 40px rgba(0,0,0,0.3)">
+    <!-- Language Toggle at top of login -->
+    <div style="display:flex;justify-content:center;margin-bottom:18px">
+      <div style="display:inline-flex;background:#f0f2f5;border-radius:12px;padding:4px;gap:3px">
+        <button id="login-lang-ar" onclick="setLoginLang('ar')" style="padding:7px 18px;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;background:#185FA5;color:#fff;transition:all 0.2s">عربي 🇦🇪</button>
+        <button id="login-lang-en" onclick="setLoginLang('en')" style="padding:7px 18px;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:#666;transition:all 0.2s">English 🇬🇧</button>
+      </div>
+    </div>
+    <div style="font-size:38px;margin-bottom:8px">🏫</div>
+    <div id="login-title" style="font-size:17px;font-weight:700;color:#185FA5;margin-bottom:3px">نظام إخلاء مدرسة حصة بنت محمد</div>
+    <div id="login-subtitle" style="font-size:11px;color:#888;margin-bottom:18px">يرجى اختيار اسمك للمتابعة</div>
     <select id="login-supervisor-sel" style="width:100%;padding:10px;border:1.5px solid #ccc;border-radius:8px;font-size:13px;margin-bottom:10px;direction:rtl;background:#fff">
       <option value="">-- اختري اسمك من القائمة --</option>
       <optgroup label="رئيسات الأقسام / المسؤولات">
         <option>موزة عمر سالم العرياني</option>
+        <option>مها جبر</option>
         <option> آمنة الأحبابي</option>
-	<option>مها جبر </option>
         <option>يمنة محمد حربي العامري</option>
         <option>بخيتة ضاحي الكعبي</option>
         <option>ليلى سالم الغيثي</option>
         <option>اليازية سليم الدرعي</option>
         <option>أمنة سعيد غالب</option>
         <option>نفلة غزاي العتيبي</option>
-	<option>ميثة راشد اليحيائي</option>
+<option>ميثة راشد اليحيائي</option>
+<option>فاطمة الساعدي</option>
+<option>Angalica</option>
       </optgroup>
       <optgroup label="الإدارة والأمن والسلامة">
         <option>المديرة</option>
@@ -806,10 +818,10 @@ input[type=text]{border:1px solid #ccc;border-radius:8px;padding:7px 10px;font-s
         <option>خديجة سيف اليحيائي</option>
       </optgroup>
     </select>
-    <div style="font-size:11px;color:#aaa;margin-bottom:6px">أو أدخلي اسمك يدوياً:</div>
+    <div id="login-or-label" style="font-size:11px;color:#aaa;margin-bottom:6px">أو أدخلي اسمك يدوياً:</div>
     <input id="login-name-inp" type="text" placeholder="اكتبي اسمك هنا..." style="width:100%;padding:10px;border:1.5px solid #ccc;border-radius:8px;font-size:13px;margin-bottom:16px;direction:rtl;text-align:right">
-    <button onclick="doLogin()" style="width:100%;padding:12px;background:#185FA5;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">دخول &#x276F;</button>
-    <div style="font-size:10px;color:#aaa;margin-top:12px">سيظهر اسمك مع كل إجراء تقومين به</div>
+    <button onclick="doLogin()" id="login-btn" style="width:100%;padding:12px;background:#185FA5;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">دخول ›</button>
+    <div id="login-note" style="font-size:10px;color:#aaa;margin-top:12px">سيظهر اسمك مع كل إجراء تقومين به</div>
   </div>
 </div>
 
@@ -856,28 +868,94 @@ const ZONES = [
   {id:'f1_3',floor:'f1',name:'غرفة إسلامية+عربية 7/1+7/2',resp:'نقلة غزاي العتيبي',x1:283,y1:567,x2:395,y2:623},
 ];
 
-const TEACHERS = [
-  'الفراء أحمد الظاهري','فاطمة فاضل الساعدي','يمنة محمد العامري',
-  'حصة سالم العلوي','أمل سالم الكعبي','موزة سيف الشامسي',
-  'ميثاء راشد اليحيائي','مريم عبد الله الشامسي','نقلة غزاي العتيبي',
-  'أمنة حسين الأحبابي','فاطمة سالم الشامسي','ليلى سالم الغيثي',
-  'حمدة علي الحدادي','موزة علي الشامسي','أمنة سعيد غالب',
-  'اليازية سليم الدرعي','جميلة سرور الشامسي','مها محمد الشامسي',
-  'صبحاء محمد علي','أمنة علي الكندي','فاطمة خاطر الشامسي',
-  'شمة علي الغيثي','لطيفة علي الشامسي','نورة أحمد المعمري',
-  'فاطمة راشد الكندي','شيخة راشد الشامسي','شيخة علي الشامسي',
-  'فاطمة رحمة الشامسي','سهير علي المعمري','Huang Duo Duo',
-  'عزة خميس الكعبي','مريم حمدان الريسي','عائشة سعيد الشامسي',
-  'فاطمة محمد بامخرمة','أمنة سعيد الكعبي','شيخة سعيد الشامسي',
-  'منى علي الشامسي','أمينة سالم الزعابي','نعيمة خميس سعيد',
-  'مهرة سويعد الدرعي','لطيفة طهميمة البلوشي','دلال علي الساعدي',
-  'نورة سعيد الشامسي','اليازية بطي الشامسي','فيانا سالجيث',
-  'طيبة عوض محمد ع','سارة محمد شعلي القحطاني','غنية أحمد الدرعي',
-  'خديجة سيف اليحيائي','حنان سالم الشامسي','بخيتة ضاحي الكعبي',
-  'العنود عبد الرحمن البلوشي','نورة محمد النيادي','فاطمة ناصر البلوشي',
-  'موزة عمر العرياني','فاطمة  إبراهيم الحلفاوي','مها جبر',
-  'Angélica Ferreira','الممرضة عبير'
+// ════════════════════════════════════════
+// BILINGUAL STAFF DATA
+// Each entry: [Arabic name, English name]
+// ════════════════════════════════════════
+var STAFF_BILINGUAL = [
+  ['الفراء أحمد الظاهري','Alfarra Ahmed Al Dhaheri'],
+  ['فاطمة فاضل الساعدي','Fatima Fadel Al Saedi'],
+  ['يمنة محمد العامري','YAMNA MOHAMMED ALAMERI'],
+  ['حصة سالم العلوي','HESSA SALEM ALALAWI'],
+  ['أمل سالم الكعبي','Amal Salem Alkaabi'],
+  ['موزة سيف الشامسي','Mouza Ali Al Shamisi'],
+  ['ميثاء راشد اليحيائي','Maitha Rashed Alyahyaee'],
+  ['مريم عبد الله الشامسي','Mariam Hamdan Alrayssi'],
+  ['نفله غزاي العتيبي','Nafla Ghazay Alateibi'],
+  ['أمنة حسين الأحبابي','AMNA HUSAIN JARWAN ABED'],
+  ['فاطمة سالم الشامسي','FATIMA SALEM ALSHAMSI'],
+  ['ليلى سالم الغيثي','LAILA SALEM ALGHAITHI'],
+  ['حمدة علي الحدادي','Hamda Ali Alhaddadi'],
+  ['موزة علي الشامسي','Mouza Ali Al Shamisi'],
+  ['أمنة سعيد غالب','AMNA SAEED GHALEB'],
+  ['اليازية سليم الدرعي','ALYZYA SULAIYAM ALDEREI'],
+  ['جميلة سرور الشامسي','Jamila Surour Alshamsi'],
+  ['مها محمد الشامسي','MAHA HAMAD ALSHAMSI'],
+  ['صبحاء محمد علي','Sabha Mohammed Alblooshi'],
+  ['أمنة علي الكندي','Amna Ali Alkindi'],
+  ['فاطمة خاطر الشامسي','Fatima Khater Alshamsi'],
+  ['شمة علي راشد الغيثي','Shamma Ali Al Ghaiti'],
+  ['لطيفة علي الشامسي','Latifa Ali Alshamsi'],
+  ['نورة أحمد المعمري','Noura Almememari'],
+  ['فاطمة راشد الكندي','FATIMA RASHED ALKINDI'],
+  ['شيخة راشد الشامسي','Shaikha Rashed Alshamsi'],
+  ['شيخة علي الشامسي','Shaikha Ali Alshamsi'],
+  ['فاطمة رحمة الشامسي','FATIMA RHAMA ALSHAMSI'],
+  ['سهير علي المعمري','Suhair Ali Al Maamari'],
+  ['Huang Duo Duo','DUODUO HUANG'],
+  ['عزة خميس الكعبي','Azza Khamis Al Kaabi'],
+  ['مريم حمدان الريسي','Mariam Hamdan Alrayssi'],
+  ['عائشة سعيد الشامسي','Aysha Saeed Alshamsi'],
+  ['فاطمة محمد بامخرمة','Fatema Mohamed Bamakhrama'],
+  ['أمنة سعيد الكعبي','AMNA SAEED ALKAABI'],
+  ['شيخة سعيد الشامسي','Shaikha Saeed Alshamsi'],
+  ['منى علي الشامسي','Muna Ali Al Shamsi'],
+  ['أمينة سالم الزعابي','AMINA SALEM ALZAABI'],
+  ['نعيمة خميس سعيد','NAEEMA KHAMIS ALSHAMSI'],
+  ['مهرة سويعد الدرعي','MAHRA SUWIAID ALDEREI'],
+  ['لطيفة طهميمة البلوشي','Latifa Tahmima Al Blooshi'],
+  ['دلال علي الساعدي','Dalal Ali Al Saedi'],
+  ['نورة سعيد عبد الله الشامسي','NOURA SAEED ALSHAMSI'],
+  ['اليازية بطي الشامسي','ALYAZIA BUTI ALSHAMSI'],
+  ['فيانا سالجيث','VEENA SANJITH NARAYAN'],
+  ['طيبة عوض بالخيزل','TAIBA AWADH BAQAHAIZAL'],
+  ['سارة محمد  القحطاني','Sara Mohammed  Alqahtani'],
+  ['غنية أحمد الدرعي','GHANEYA AHMED ALDEREI'],
+  ['خديجة سيف اليحيائي','KHADIJA SAIF ALYAHYAEE'],
+  ['حنان سالم الشامسي','Hanaan Salem Alshamsi'],
+  ['بخيتة ضاحي الكعبي','Bakhita Dahi Alkaabi'],
+  ['العنود عبد الرحمن البلوشي','Alanoud Abdulrahman Alblooshi'],
+  ['نورة محمد النيادي','Noura Mohammed Alniadi'],
+  ['فاطمة ناصر البلوشي','Fatima Nasser Alblooshi'],
+  ['موزة عمر العرياني','MOUZA OMAR AL ARYANI'],
+  ['فاطمة بنت الحلفاوي','Fatma Halfaoui'],
+  ['مها محمد  جبر','MAHA MOHAMED ALI GABR'],
+  ['Angélica Ferreira','Angelica Ferreira'],
+  ['الممرضة عبير','Nurse Abeer']
 ];
+
+// Language mode: 'ar' or 'en'
+var currentLang = 'ar';
+
+// Build TEACHERS array from bilingual data (using current language)
+function buildTeachersArray(){
+  return STAFF_BILINGUAL.map(function(pair){ return currentLang === 'en' ? pair[1] : pair[0]; });
+}
+var TEACHERS = buildTeachersArray();
+
+// Get display name for a stored Arabic name
+function getDisplayName(arName){
+  if(currentLang === 'ar') return arName;
+  var pair = STAFF_BILINGUAL.find(function(p){ return p[0] === arName || p[1] === arName; });
+  return pair ? pair[1] : arName;
+}
+
+// Get Arabic (storage) name from any display name
+function getStorageName(displayName){
+  // Always store in Arabic for Firebase consistency
+  var pair = STAFF_BILINGUAL.find(function(p){ return p[0] === displayName || p[1] === displayName; });
+  return pair ? pair[0] : displayName;
+}
 
 // ════════════════════════════════════════
 // USER COLOR PALETTE
@@ -1181,9 +1259,10 @@ function load(){
 function showSyncStatus(status){
   var el = document.getElementById('sync-status');
   if(!el) return;
-  if(status==='synced'){  el.textContent='🟢 متزامن'; el.style.color='#27500A'; }
-  else if(status==='offline'){ el.textContent='🔴 غير متزامن'; el.style.color='#A32D2D'; }
-  else { el.textContent='🟡 خطأ في المزامنة'; el.style.color='#854F0B'; }
+  var t = UI[currentLang] || UI['ar'];
+  if(status==='synced'){  el.textContent=t.syncOn;  el.style.color='#27500A'; }
+  else if(status==='offline'){ el.textContent=t.syncOff; el.style.color='#A32D2D'; }
+  else { el.textContent=t.syncErr; el.style.color='#854F0B'; }
 }
 
 // ── Login ─────────────────────────────────────────────────────────────────
@@ -1199,20 +1278,22 @@ function doLogin(){
   var sel = document.getElementById('login-supervisor-sel');
   var inp = document.getElementById('login-name-inp');
   var name = (sel && sel.value) ? sel.value : (inp ? inp.value.trim() : '');
-  if(!name){ alert('يرجى إدخال اسمك أو اختياره'); return; }
+  if(!name){ alert(UI[currentLang].loginAlert); return; }
   currentUser = name;
   sessionStorage.setItem('hessa_user', name);
+  sessionStorage.setItem('hessa_lang', currentLang);
   document.getElementById('login-modal').style.display = 'none';
   var loginUc = getUserColor(name);
   var badgeEl = document.getElementById('current-user-badge');
-  badgeEl.textContent = '● أنتِ: ' + name;
+  badgeEl.textContent = UI[currentLang].youLabel + name;
   badgeEl.style.cssText = 'display:inline-block;font-size:10px;border-radius:8px;padding:2px 8px;margin-top:3px;font-weight:700;'
     + (loginUc ? 'background:'+loginUc.bg+';color:'+loginUc.text+';border:1px solid '+loginUc.border+';' : 'background:#E6F1FB;color:#0C447C;border:1px solid #85B7EB;');
   initFirebase();
   load();
+  loadBackupEmployees();
+  applyUILanguage();
   renderAll_internal();
   setFloor('gf');
-  // Start presence tracking after login
   setTimeout(startPresenceUpdater, 1000);
 }
 
@@ -1235,10 +1316,206 @@ function calcStats(){
   var absentKeys = Object.keys(state.absent);
   var regKeys = Object.keys(state.registered).filter(function(t){ return !(t in state.absent); });
   var present = regKeys.length;
-  var totalActive = TEACHERS.length - absentKeys.length;
+  var totalActive = STAFF_BILINGUAL.length - absentKeys.length;
   var missing = totalActive - present;
   var pct = totalActive > 0 ? Math.round(present/totalActive*100) : 0;
-  return {total:TEACHERS.length, present:present, missing:missing, absent:absentKeys.length, pct:pct, totalActive:totalActive};
+  return {total:STAFF_BILINGUAL.length, present:present, missing:missing, absent:absentKeys.length, pct:pct, totalActive:totalActive};
+}
+
+// ════════════════════════════════════════
+// BILINGUAL UI STRINGS
+// ════════════════════════════════════════
+var UI = {
+  ar: {
+    hdrTitle:      'مدرسة حصة بنت محمد ح2',
+    hdrSub:        'نظام إخلاء المبنى — فريق الأمن والسلامة',
+    lblTotal:      'إجمالي الموظفات',
+    lblPresent:    'تم رصدهن',
+    lblMissing:    'لم يُرصدن',
+    lblAbsent:     'غائبات اليوم',
+    lblVisitors:   '👥 عدد الزوار:',
+    lblVisUnit:    'زائر',
+    lblBackup:     '👤 موظفة احتياط:',
+    btnAddBackup:  '✚ إضافة للقائمة',
+    btnPdf:        '📄 تحميل التقرير PDF',
+    tabMap:        '🗺️ الخريطة\nInteractive Map',
+    tabAll:        '👩‍💼 الموظفات\nAll Staff',
+    tabAbsent:     '🏠 الغائبات\nAbsent',
+    tabReset:      '🔄 إعادة تعيين\nReset',
+    tabBus:        '🚌 مشرفات الباص\nBus Supervisors',
+    tabStudents:   '🎓 الطالبات\nStudents',
+    tabAudit:      '📋 سجل العمليات\nAudit Log',
+    backupInp:     'اكتبي اسم الموظفة الاحتياط...',
+    zoneSearch:    '🔍 بحث عن موظفة...',
+    allSearch:     'بحث بالاسم...',
+    syncOff:       '🔴 غير متزامن',
+    syncOn:        '🟢 متزامن',
+    syncErr:       '🟡 خطأ في المزامنة',
+    loginTitle:    'نظام إخلاء مدرسة حصة بنت محمد',
+    loginSub:      'يرجى اختيار اسمك للمتابعة',
+    loginOr:       'أو أدخلي اسمك يدوياً:',
+    loginBtn:      'دخول ›',
+    loginNote:     'سيظهر اسمك مع كل إجراء تقومين به',
+    loginInp:      'اكتبي اسمك هنا...',
+    loginSel:      '-- اختري اسمك من القائمة --',
+    loginAlert:    'يرجى إدخال اسمك أو اختياره',
+    youLabel:      '● أنتِ: ',
+    mbEvac:        'جارٍ الإخلاء',
+    mbProgress:    'إخلاء جارٍ',
+    mbDone:        'اكتمل الإحصاء'
+  },
+  en: {
+    hdrTitle:      'Hessa bint Mohammed School',
+    hdrSub:        'Building Evacuation System — Safety Team',
+    lblTotal:      'Total Staff',
+    lblPresent:    'Recorded',
+    lblMissing:    'Not Recorded',
+    lblAbsent:     'Absent Today',
+    lblVisitors:   '👥 Visitors:',
+    lblVisUnit:    'visitor(s)',
+    lblBackup:     '👤 Backup Staff:',
+    btnAddBackup:  '✚ Add to List',
+    btnPdf:        '📄 Download PDF Report',
+    tabMap:        '🗺️ Map\nالخريطة',
+    tabAll:        '👩‍💼 All Staff\nالموظفات',
+    tabAbsent:     '🏠 Absent\nالغائبات',
+    tabReset:      '🔄 Reset\nإعادة تعيين',
+    tabBus:        '🚌 Bus Supervisors\nمشرفات الباص',
+    tabStudents:   '🎓 Students\nالطالبات',
+    tabAudit:      '📋 Audit Log\nسجل العمليات',
+    backupInp:     'Type backup staff name...',
+    zoneSearch:    '🔍 Search staff...',
+    allSearch:     'Search by name...',
+    syncOff:       '🔴 Offline',
+    syncOn:        '🟢 Synced',
+    syncErr:       '🟡 Sync error',
+    loginTitle:    'Hessa bint Mohammed School Evacuation',
+    loginSub:      'Please select your name to continue',
+    loginOr:       'Or type your name manually:',
+    loginBtn:      'Enter ›',
+    loginNote:     'Your name will appear with every action',
+    loginInp:      'Type your name here...',
+    loginSel:      '-- Select your name --',
+    loginAlert:    'Please enter or select your name',
+    youLabel:      '● You: ',
+    mbEvac:        'Evacuating',
+    mbProgress:    'In Progress',
+    mbDone:        'Count Complete'
+  }
+};
+
+function applyUILanguage(){
+  var t = UI[currentLang];
+  var isEn = currentLang === 'en';
+
+  // HTML direction
+  document.documentElement.setAttribute('lang', currentLang);
+  document.documentElement.setAttribute('dir', isEn ? 'ltr' : 'rtl');
+
+  // Header
+  var e;
+  e = document.getElementById('hdr-title');    if(e) e.textContent = t.hdrTitle;
+  e = document.getElementById('hdr-sub');      if(e) e.textContent = t.hdrSub;
+
+  // Stats labels
+  e = document.getElementById('lbl-total');    if(e) e.textContent = t.lblTotal;
+  e = document.getElementById('lbl-present');  if(e) e.textContent = t.lblPresent;
+  e = document.getElementById('lbl-missing');  if(e) e.textContent = t.lblMissing;
+  e = document.getElementById('lbl-absent');   if(e) e.textContent = t.lblAbsent;
+  e = document.getElementById('lbl-visitors'); if(e) e.textContent = t.lblVisitors;
+  e = document.getElementById('lbl-visitor-unit'); if(e) e.textContent = t.lblVisUnit;
+
+  // Backup employee
+  e = document.getElementById('lbl-backup');   if(e) e.textContent = t.lblBackup;
+  e = document.getElementById('btn-add-backup'); if(e) e.textContent = t.btnAddBackup;
+  e = document.getElementById('backup-employee-inp'); if(e) e.placeholder = t.backupInp;
+
+  // PDF button
+  e = document.getElementById('pdf-btn');      if(e) e.textContent = t.btnPdf;
+
+  // Zone search
+  e = document.getElementById('zone-search');  if(e) e.placeholder = t.zoneSearch;
+
+  // All staff search
+  e = document.getElementById('sinp');         if(e) e.placeholder = t.allSearch;
+
+  // Tabs — set innerHTML with icon + bilingual line
+  function setTab(id, text){
+    var parts = text.split('\n');
+    var el = document.getElementById(id);
+    if(!el) return;
+    el.innerHTML = parts[0] + '<br><span style="font-size:9px;opacity:0.75">' + (parts[1]||'') + '</span>';
+  }
+  setTab('tab-map',      t.tabMap);
+  setTab('tab-all',      t.tabAll);
+  setTab('tab-absent',   t.tabAbsent);
+  setTab('tab-reset',    t.tabReset);
+  setTab('tab-bus',      t.tabBus);
+  setTab('tab-students', t.tabStudents);
+  setTab('tab-audit',    t.tabAudit);
+
+  // Update status badge text if logged in
+  if(currentUser){
+    e = document.getElementById('current-user-badge');
+    if(e && e.style.display !== 'none') e.textContent = t.youLabel + currentUser;
+  }
+
+  // Sync status update
+  var ss = document.getElementById('sync-status');
+  if(ss){
+    if(ss.textContent.indexOf('🟢') >= 0)      ss.textContent = t.syncOn;
+    else if(ss.textContent.indexOf('🟡') >= 0) ss.textContent = t.syncErr;
+    else                                        ss.textContent = t.syncOff;
+  }
+
+  // Login modal texts
+  e = document.getElementById('login-title');   if(e) e.textContent = t.loginTitle;
+  e = document.getElementById('login-subtitle');if(e) e.textContent = t.loginSub;
+  e = document.getElementById('login-or-label');if(e) e.textContent = t.loginOr;
+  e = document.getElementById('login-btn');     if(e) e.textContent = t.loginBtn;
+  e = document.getElementById('login-note');    if(e) e.textContent = t.loginNote;
+  e = document.getElementById('login-name-inp');if(e) e.placeholder = t.loginInp;
+  // Update login modal direction
+  var loginBox = document.querySelector('#login-modal > div');
+  if(loginBox) loginBox.style.direction = isEn ? 'ltr' : 'rtl';
+  e = document.getElementById('login-name-inp');
+  if(e){ e.style.direction = isEn ? 'ltr' : 'rtl'; e.style.textAlign = isEn ? 'left' : 'right'; }
+
+  // Update login lang buttons highlight
+  var btnAr = document.getElementById('login-lang-ar');
+  var btnEn = document.getElementById('login-lang-en');
+  if(btnAr && btnEn){
+    if(isEn){
+      btnAr.style.cssText = 'padding:7px 18px;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:#666;transition:all 0.2s';
+      btnEn.style.cssText = 'padding:7px 18px;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;background:#185FA5;color:#fff;transition:all 0.2s';
+    } else {
+      btnAr.style.cssText = 'padding:7px 18px;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;background:#185FA5;color:#fff;transition:all 0.2s';
+      btnEn.style.cssText = 'padding:7px 18px;border:none;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;background:transparent;color:#666;transition:all 0.2s';
+    }
+  }
+
+  // Update progress bar status badge label if visible
+  var mb = document.getElementById('mb');
+  if(mb){
+    if(mb.classList.contains('bs')) mb.textContent = t.mbDone;
+    else if(mb.classList.contains('bw')) mb.textContent = t.mbProgress;
+    else mb.textContent = t.mbEvac;
+  }
+}
+
+function setLoginLang(lang){
+  currentLang = lang;
+  applyUILanguage();
+}
+
+function toggleLanguage(){
+  currentLang = currentLang === 'ar' ? 'en' : 'ar';
+  applyUILanguage();
+  // Re-render data views
+  renderAll_internal();
+  if(selZone){ selectZone(selZone); }
+  renderAbsentView();
+  renderAllView();
 }
 
 function renderStats(){
@@ -1251,17 +1528,17 @@ function renderStats(){
   var b = document.getElementById('mb');
   var prev = b.textContent;
   if(s.missing===0 && s.totalActive>0){
-    b.textContent='اكتمل الإحصاء';
+    b.textContent = UI[currentLang].mbDone;
     b.className='bdg bs';
     document.getElementById('pf').style.background='#3B6D11';
-    if(prev !== 'اكتمل الإحصاء') showCompletionBanner();
+    if(prev !== UI[currentLang].mbDone) showCompletionBanner();
   } else if(s.pct>=50){
-    b.textContent='إخلاء جارٍ';
+    b.textContent = UI[currentLang].mbProgress;
     b.className='bdg bw';
     document.getElementById('pf').style.background='#854F0B';
     hideCompletionBanner();
   } else {
-    b.textContent='جارٍ الإخلاء';
+    b.textContent = UI[currentLang].mbEvac;
     b.className='bdg bd';
     document.getElementById('pf').style.background='#A32D2D';
     hideCompletionBanner();
@@ -1339,46 +1616,67 @@ function selectZone(zid){
   document.getElementById('zpanel').style.display = 'block';
   document.getElementById('zt').textContent = zone.name;
 
+  // Clear search on zone change
+  var searchEl = document.getElementById('zone-search');
+  if(searchEl) searchEl.value = '';
+
   var lastBy = '', lastAt = 0;
   Object.entries(state.registered).forEach(function(e){
     var entry = e[1];
     var zId = (typeof entry==='object'&&entry) ? entry.zone : entry;
     if(zId===zid && entry && entry.at > lastAt){ lastBy=entry.by||''; lastAt=entry.at; }
   });
-  var byLine = lastBy ? ' · آخر تسجيل: ' + lastBy + ' ' + fmtTime(lastAt) : '';
-  document.getElementById('zs').innerHTML = '<span style="color:#185FA5;font-weight:700">المسؤولة: ' + zone.resp + '</span> · اضغطي على اسم الموظفة لتسجيلها' + (byLine ? '<br><span style="color:#888;font-size:10px">🕐 ' + byLine.replace(' · ','') + '</span>' : '');
+  var byLine = lastBy ? (currentLang==='en' ? ' · Last registered: ' : ' · آخر تسجيل: ') + lastBy + ' ' + fmtTime(lastAt) : '';
+  var respLabel = currentLang==='en' ? 'Supervisor: ' : 'المسؤولة: ';
+  var instrLabel = currentLang==='en' ? ' · Tap a name to register' : ' · اضغطي على اسم الموظفة لتسجيلها';
+  document.getElementById('zs').innerHTML = '<span style="color:#185FA5;font-weight:700">'+respLabel + zone.resp + '</span>' + instrLabel + (byLine ? '<br><span style="color:#888;font-size:10px">🕐 ' + byLine.replace(' · ','') + '</span>' : '');
 
+  renderZoneGrid(zid, '');
+}
+
+function renderZoneGrid(zid, filterQ){
   var grid = document.getElementById('zg');
-  var available = TEACHERS.filter(function(t){ return !(t in state.absent); });
+  var q = filterQ ? filterQ.trim() : '';
+  // Always work with Arabic storage names; filter on display names
+  var arNames = STAFF_BILINGUAL.map(function(p){ return p[0]; });
+  var available = arNames.filter(function(t){ return !(t in state.absent); });
+  if(q){
+    available = available.filter(function(t){
+      var displayName = getDisplayName(t);
+      var arName = t;
+      return displayName.toLowerCase().indexOf(q.toLowerCase()) >= 0
+          || arName.indexOf(q) >= 0;
+    });
+  }
   grid.innerHTML = '';
-  available.forEach(function(t){
-    var entry = state.registered[t];
+  available.forEach(function(arName){
+    var displayName = getDisplayName(arName);
+    var entry = state.registered[arName];
     var rz = entry ? (typeof entry==='object' ? entry.zone : entry) : null;
     var rzone = rz ? ZONES.find(function(z){return z.id===rz;}) : null;
     var span = document.createElement('span');
     if(rz === zid){
-      // ── Present in THIS zone: apply registrant's color ──
       var regByUser = (entry && entry.by) ? entry.by : null;
       var uc = getUserColor(regByUser);
       span.className = 'tc present';
       if(uc){
         span.style.cssText = 'background:'+uc.bg+';color:'+uc.text+';border:1.5px solid '+uc.border+';font-weight:700;';
       }
-      // Show name + registrant badge
-      span.innerHTML = '\u2713 ' + t
+      span.innerHTML = '\u2713 ' + displayName
         + (regByUser ? ' <span style="font-size:9px;background:'+(uc?uc.badge:'#e0e0e0')+';color:'+(uc?uc.text:'#555')+';border-radius:3px;padding:0 4px;margin-right:2px">'+regByUser+'</span>' : '');
       span.style.cursor = 'pointer';
-      span.setAttribute('data-name', t);
-      span.title = 'سجّلت بواسطة: ' + (regByUser||'') + ' — اضغطي لإلغاء التسجيل';
+      span.setAttribute('data-name', arName);
+      var unregTitle = currentLang==='en' ? 'Registered by: '+(regByUser||'')+' — tap to unregister' : 'سجّلت بواسطة: '+(regByUser||'')+' — اضغطي لإلغاء التسجيل';
+      span.title = unregTitle;
       span.addEventListener('click', function(){ unregT(this.getAttribute('data-name')); });
     } else if(rz){
       span.className = 'tc other';
       span.title = rzone ? rzone.name : rz;
-      span.textContent = t;
+      span.textContent = displayName;
     } else {
       span.className = 'tc avail';
-      span.textContent = t;
-      span.setAttribute('data-name', t);
+      span.textContent = displayName;
+      span.setAttribute('data-name', arName);
       span.setAttribute('data-zid', zid);
       span.addEventListener('click', function(){
         regT(this.getAttribute('data-name'), this.getAttribute('data-zid'));
@@ -1386,6 +1684,19 @@ function selectZone(zid){
     }
     grid.appendChild(span);
   });
+  // Show "no results" message
+  if(grid.children.length === 0 && q){
+    var noRes = document.createElement('div');
+    noRes.style.cssText = 'color:#aaa;font-size:12px;padding:10px;width:100%;text-align:center';
+    noRes.textContent = currentLang==='en' ? 'No results for "'+q+'"' : 'لا نتائج لـ "'+q+'"';
+    grid.appendChild(noRes);
+  }
+}
+
+function filterZoneGrid(){
+  if(!selZone) return;
+  var q = document.getElementById('zone-search').value;
+  renderZoneGrid(selZone, q);
 }
 
 function regT(name, zid){
@@ -1463,8 +1774,13 @@ function showToast(msg){
 function renderAllView(){
   var q = (document.getElementById('sinp') ? document.getElementById('sinp').value : '').trim();
   var list = document.getElementById('alllist');
-  var filtered = q ? TEACHERS.filter(function(t){return t.indexOf(q)>=0;}) : TEACHERS;
+  var arNames = STAFF_BILINGUAL.map(function(p){ return p[0]; });
+  var filtered = q ? arNames.filter(function(t){
+    var dispName = getDisplayName(t);
+    return dispName.toLowerCase().indexOf(q.toLowerCase()) >= 0 || t.indexOf(q) >= 0;
+  }) : arNames;
   list.innerHTML = filtered.map(function(t){
+    var displayName = getDisplayName(t);
     var entry = state.registered[t];
     var zid = entry ? (typeof entry==='object' ? entry.zone : entry) : null;
     var zone = zid ? ZONES.find(function(z){return z.id===zid;}) : null;
@@ -1473,7 +1789,7 @@ function renderAllView(){
     var rowBorderStyle = '';
     if(isAbs){
       var absEntry = state.absent[t];
-      status='غائبة';color='#A32D2D';
+      status = currentLang==='en' ? 'Absent' : 'غائبة'; color='#A32D2D';
       extra = (absEntry&&absEntry.by) ? absEntry.by+' '+fmtTime(absEntry.at) : '';
     } else if(zone){
       status=zone.name;color='#3B6D11';
@@ -1481,7 +1797,7 @@ function renderAllView(){
       var rowUc = getUserColor(entry && entry.by);
       if(rowUc){ color=rowUc.text; rowBorderStyle='border-right:4px solid '+rowUc.border+';background:'+rowUc.bg+';'; }
     } else {
-      status='لم تُرصد بعد';color='#854F0B';
+      status = currentLang==='en' ? 'Not recorded yet' : 'لم تُرصد بعد'; color='#854F0B';
     }
     var byBadge = '';
     if(extra && (zone || isAbs)){
@@ -1490,16 +1806,18 @@ function renderAllView(){
         ? '<span style="background:'+byUc2.badge+';color:'+byUc2.text+';border:1px solid '+byUc2.border+';border-radius:4px;padding:1px 6px;font-size:9px;font-weight:700;margin-right:4px">'+extra+'</span>'
         : '<span style="color:#aaa;font-size:10px"> · '+extra+'</span>';
     }
-    return '<div class="all-row" style="'+rowBorderStyle+'"><span style="font-weight:600">'+t+'</span>'
+    return '<div class="all-row" style="'+rowBorderStyle+'"><span style="font-weight:600">'+displayName+'</span>'
       +'<span style="color:'+color+';font-size:11px">'+status+' '+byBadge+'</span></div>';
   }).join('');
 }
 
 function renderAbsentView(){
   var sel = document.getElementById('abssel');
-  var notAbs = TEACHERS.filter(function(t){ return !(t in state.absent); });
-  sel.innerHTML = '<option value="">اختر الموظفة...</option>' + notAbs.map(function(t){
-    return '<option value="'+t+'">'+t+'</option>';
+  var arNames = STAFF_BILINGUAL.map(function(p){ return p[0]; });
+  var notAbs = arNames.filter(function(t){ return !(t in state.absent); });
+  var chooseLabel = currentLang==='en' ? 'Select staff member...' : 'اختر الموظفة...';
+  sel.innerHTML = '<option value="">'+chooseLabel+'</option>' + notAbs.map(function(t){
+    return '<option value="'+t+'">'+getDisplayName(t)+'</option>';
   }).join('');
   var chips = document.getElementById('abschips');
   chips.innerHTML = '';
@@ -1511,7 +1829,8 @@ function renderAbsentView(){
     if(absChipUc){
       sp.style.cssText = 'display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid '+absChipUc.border+';border-radius:20px;font-size:12px;color:'+absChipUc.text+';background:'+absChipUc.bg+';';
     }
-    var label = n + (entry&&entry.by ? ' (' + entry.by + ')' : '') + ' ';
+    var displayN = getDisplayName(n);
+    var label = displayN + (entry&&entry.by ? ' (' + entry.by + ')' : '') + ' ';
     var txt = document.createTextNode(label);
     sp.appendChild(txt);
     var btn = document.createElement('button');
@@ -1587,7 +1906,11 @@ function removeAbsent(n){
 
 function doReset(){
   var modal = document.getElementById('confirm-modal');
-  document.getElementById('modal-msg').textContent = 'هل تريد مسح بيانات التسجيل والغائبات فقط؟';
+  var isEn = currentLang === 'en';
+  document.getElementById('modal-msg').textContent = isEn
+    ? 'Clear all registration data, absences & visitor count?'
+    : 'هل تريد مسح بيانات التسجيل والغائبات وعدد الزوار؟';
+  document.querySelector('#confirm-modal [style*="قائمة"]') && (document.querySelector('#confirm-modal [style*="قائمة"]').textContent = isEn ? 'Staff list remains unchanged' : 'قائمة الموظفات تبقى كما هي');
   modal.style.display = 'flex';
 }
 function confirmReset(){
@@ -1618,6 +1941,14 @@ function confirmReset(){
       renderBusList();
     }
   } else {
+    // Reset visitors count to 0
+    var visInp = document.getElementById('visitors-count');
+    if(visInp) visInp.value = 0;
+    try{ localStorage.removeItem('hessa_visitors_v1'); }catch(e){}
+    if(syncEnabled && db){
+      db.ref('hessa_school/visitors').set({count:0, updatedBy:currentUser, at:Date.now()}).catch(function(){});
+    }
+
     if(syncEnabled && db){
       db.ref('hessa_school/evacuation').set({
         registered: {},
@@ -1692,132 +2023,53 @@ function setView(v){
 document.getElementById('mapimg').onload = function(){renderZones();};
 window.addEventListener('resize', renderZones);
 
-// ── Start: show login or init directly ───────────────────────────────────
-if(!currentUser){
+// ── Start: restore saved language, ALWAYS show login on fresh load ──────────
+(function(){
+  var savedLang = sessionStorage.getItem('hessa_lang') || 'ar';
+  currentLang = savedLang;
+  applyUILanguage();
+  // Always require login on every page load for security/accountability
+  currentUser = null;
+  sessionStorage.removeItem('hessa_user');
   showLoginModal();
-} else {
-  var initUc = getUserColor(currentUser);
-  var initBadgeEl = document.getElementById('current-user-badge');
-  initBadgeEl.textContent = '● أنتِ: ' + currentUser;
-  initBadgeEl.style.cssText = 'display:inline-block;font-size:10px;border-radius:8px;padding:2px 8px;margin-top:3px;font-weight:700;'
-    + (initUc ? 'background:'+initUc.bg+';color:'+initUc.text+';border:1px solid '+initUc.border+';' : 'background:#E6F1FB;color:#0C447C;border:1px solid #85B7EB;');
-  initFirebase();
-  load();
-  renderAll_internal();
-  setFloor('gf');
-  setTimeout(startPresenceUpdater, 1500);
-}
+})();
 
 
 function printReport(){
-  var s = calcStats();
-  var now = new Date();
-  var dateStr = now.toLocaleDateString('ar', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  var timeStr = now.toLocaleTimeString('ar', {hour:'2-digit',minute:'2-digit'});
-
-  var zoneGroups = {};
-  ZONES.forEach(function(z){ zoneGroups[z.id] = []; });
-  zoneGroups['unregistered'] = [];
-  zoneGroups['absent'] = [];
-
-  TEACHERS.forEach(function(t){
-    if(t in state.absent){ zoneGroups['absent'].push(t); }
-    else if(state.registered[t]){ var __zid=(typeof state.registered[t]==='object')?state.registered[t].zone:state.registered[t]; zoneGroups[__zid].push(t); }
-    else { zoneGroups['unregistered'].push(t); }
-  });
-
-  var rows = '';
-  var rowNum = 1;
-  ZONES.forEach(function(z){
-    var list = zoneGroups[z.id];
-    if(!list.length) return;
-    list.forEach(function(t, i){
-      rows += '<tr><td style="padding:6px 8px;border-bottom:1px solid #eee;color:#666">' + rowNum++ + '</td>' +
-        '<td style="padding:6px 8px;border-bottom:1px solid #eee;font-weight:600">' + t + '</td>' +
-        '<td style="padding:6px 8px;border-bottom:1px solid #eee;color:#27500A">' + (i===0?z.name:'') + '</td>' +
-        '<td style="padding:6px 8px;border-bottom:1px solid #eee;color:#27500A;text-align:center">&#10003; مرصودة</td></tr>';
-    });
-  });
-  zoneGroups['unregistered'].forEach(function(t){
-    rows += '<tr style="background:#FFFDE7"><td style="padding:6px 8px;border-bottom:1px solid #eee;color:#666">' + rowNum++ + '</td>' +
-      '<td style="padding:6px 8px;border-bottom:1px solid #eee;font-weight:600">' + t + '</td>' +
-      '<td style="padding:6px 8px;border-bottom:1px solid #eee;color:#854F0B">لم تُرصد بعد</td>' +
-      '<td style="padding:6px 8px;border-bottom:1px solid #eee;color:#854F0B;text-align:center">&#9888;</td></tr>';
-  });
-  zoneGroups['absent'].forEach(function(t){
-    rows += '<tr style="background:#FFF5F5"><td style="padding:6px 8px;border-bottom:1px solid #eee;color:#666">' + rowNum++ + '</td>' +
-      '<td style="padding:6px 8px;border-bottom:1px solid #eee;font-weight:600">' + t + '</td>' +
-      '<td style="padding:6px 8px;border-bottom:1px solid #eee;color:#A32D2D">غائبة اليوم</td>' +
-      '<td style="padding:6px 8px;border-bottom:1px solid #eee;color:#A32D2D;text-align:center">&#8212;</td></tr>';
-  });
-
-  var statusColor = s.missing===0 ? '#27500A' : '#A32D2D';
-  var statusText = s.missing===0 ? '&#10003; اكتمل الإحصاء - جميع الموظفات تم رصدهن' : '&#9888; لا يزال ' + s.missing + ' موظفة لم يُرصدن';
-
-  var reportHTML =
-    '<div style="text-align:center;border-bottom:2px solid #185FA5;padding-bottom:12px;margin-bottom:14px">' +
-    '<div style="font-size:16px;font-weight:700;color:#185FA5">مدرسة حصة بنت محمد - حلقة ثانية</div>' +
-    '<div style="font-size:13px;font-weight:700;margin:3px 0">تقرير إخلاء المبنى - مناطق الإيواء الآمنة</div>' +
-    '<div style="font-size:11px;color:#888">' + dateStr + ' | ' + timeStr + '</div></div>' +
-    '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">' +
-    '<div style="flex:1;min-width:80px;border:1px solid #ddd;border-radius:8px;padding:8px;text-align:center"><div style="font-size:22px;font-weight:700;color:#185FA5">' + s.total + '</div><div style="font-size:10px;color:#888">الإجمالي</div></div>' +
-    '<div style="flex:1;min-width:80px;border:1px solid #ddd;border-radius:8px;padding:8px;text-align:center"><div style="font-size:22px;font-weight:700;color:#27500A">' + s.present + '</div><div style="font-size:10px;color:#888">مرصودات</div></div>' +
-    '<div style="flex:1;min-width:80px;border:1px solid #ddd;border-radius:8px;padding:8px;text-align:center"><div style="font-size:22px;font-weight:700;color:#A32D2D">' + s.missing + '</div><div style="font-size:10px;color:#888">لم يُرصدن</div></div>' +
-    '<div style="flex:1;min-width:80px;border:1px solid #ddd;border-radius:8px;padding:8px;text-align:center"><div style="font-size:22px;font-weight:700;color:#854F0B">' + s.absent + '</div><div style="font-size:10px;color:#888">غائبات</div></div>' +
-    '</div>' +
-    '<div style="background:' + statusColor + ';color:#fff;padding:8px 14px;border-radius:8px;text-align:center;font-weight:700;font-size:12px;margin-bottom:14px">' + statusText + '</div>' +
-    '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">' +
-    '<thead><tr>' +
-    '<th style="background:#185FA5;color:#fff;padding:8px;text-align:right">#</th>' +
-    '<th style="background:#185FA5;color:#fff;padding:8px;text-align:right">اسم الموظفة</th>' +
-    '<th style="background:#185FA5;color:#fff;padding:8px;text-align:right">موقع التواجد</th>' +
-    '<th style="background:#185FA5;color:#fff;padding:8px;text-align:center">الحالة</th>' +
-    '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
-    '<div style="margin-top:14px;text-align:center;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:10px">فريق الأمن والسلامة - مدرسة حصة بنت محمد</div>';
-
-  document.getElementById('report-content').innerHTML = reportHTML;
-  document.getElementById('print-modal').style.display = 'flex';
+  // Redirect to the unified PDF report
+  downloadPdfReport();
 }
 
 function closePrintModal(){
-  document.getElementById('print-modal').style.display = 'none';
+  var m = document.getElementById('print-modal');
+  if(m) m.style.display = 'none';
 }
 
 function doPrint(){
-  var reportContent = document.getElementById('report-content').innerHTML;
-  // Create a hidden printable div
-  var printDiv = document.getElementById('print-frame');
-  if(!printDiv){
-    printDiv = document.createElement('div');
-    printDiv.id = 'print-frame';
-    document.body.appendChild(printDiv);
-  }
-  printDiv.innerHTML = '<div style="direction:rtl;font-family:Arial,sans-serif;padding:16px">' + reportContent + '</div>';
-  // Add print styles if not present
-  if(!document.getElementById('print-style')){
-    var style = document.createElement('style');
-    style.id = 'print-style';
-    style.textContent = '@media print{body > *:not(#print-frame){display:none!important}#print-frame{display:block!important}}@media screen{#print-frame{display:none}}';
-    document.head.appendChild(style);
-  }
-  try{ window.print(); } catch(e){ console.warn('Print blocked in iframe'); }
+  downloadPdfReport();
 }
 
 // ════════════════════════════════════════
 // UNIFIED FULL PDF DOWNLOAD REPORT
 // ════════════════════════════════════════
 function buildFullReportHTML(){
+  var isEn = currentLang === 'en';
   var now = new Date();
-  var dateStr = now.toLocaleDateString('ar',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  var timeStr = now.toLocaleTimeString('ar',{hour:'2-digit',minute:'2-digit'});
+  var dateStr = now.toLocaleDateString(isEn ? 'en' : 'ar',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  var timeStr = now.toLocaleTimeString(isEn ? 'en' : 'ar',{hour:'2-digit',minute:'2-digit'});
 
-  /* STAFF DATA */
+  // Get visitor count
+  var visitorsEl = document.getElementById('visitors-count');
+  var visitorsCount = visitorsEl ? (parseInt(visitorsEl.value)||0) : 0;
+
+  /* STAFF DATA — always use Arabic names as keys for Firebase */
   var s = calcStats();
   var zoneGroups = {};
   ZONES.forEach(function(z){ zoneGroups[z.id] = []; });
   zoneGroups['unregistered'] = [];
   zoneGroups['absent'] = [];
-  TEACHERS.forEach(function(t){
+  var arNames = STAFF_BILINGUAL.map(function(p){ return p[0]; });
+  arNames.forEach(function(t){
     if(t in state.absent)              zoneGroups['absent'].push(t);
     else if(state.registered[t]){      var __zid2=(typeof state.registered[t]==='object')?state.registered[t].zone:state.registered[t]; zoneGroups[__zid2].push(t); }
     else                               zoneGroups['unregistered'].push(t);
@@ -1834,25 +2086,28 @@ function buildFullReportHTML(){
       var byUser = (regEnt && typeof regEnt==='object' && regEnt.by) ? regEnt.by : '';
       var atTime = (regEnt && typeof regEnt==='object' && regEnt.at) ? fmtTime(regEnt.at) : '';
       if(byUser) reportColorLegend[byUser] = true;
-      staffRows += '<tr><td class="num">'+ rowNum++ +'</td><td class="bold">'+ t +'</td>'
+      var dispName = isEn ? getDisplayName(t) : t;
+      staffRows += '<tr><td class="num">'+ rowNum++ +'</td><td class="bold">'+ dispName +'</td>'
         +'<td style="color:#1a5c1a">'+(i===0?z.name:'')+'</td>'
         +'<td style="color:#185FA5;font-weight:700">'+ byUser +'</td>'
-        +'<td class="center green">\u2713 \u0645\u0631\u0635\u0648\u062f\u0629</td>'
+        +'<td class="center green">'+(isEn?'✓ Recorded':'✓ مرصودة')+'</td>'
         +'<td class="center" style="color:#888;font-size:9pt">'+ atTime +'</td></tr>';
     });
   });
   zoneGroups['unregistered'].forEach(function(t){
-    staffRows += '<tr class="rw"><td class="num">'+ rowNum++ +'</td><td class="bold">'+ t +'</td>'
-      +'<td style="color:#7a4100">\u0644\u0645 \u062a\u064f\u0631\u0635\u062f \u0628\u0639\u062f</td>'
-      +'<td></td><td class="center" style="color:#7a4100">\u26a0</td><td></td></tr>';
+    var dispName = isEn ? getDisplayName(t) : t;
+    staffRows += '<tr class="rw"><td class="num">'+ rowNum++ +'</td><td class="bold">'+ dispName +'</td>'
+      +'<td style="color:#7a4100">'+(isEn?'Not recorded yet':'لم تُرصد بعد')+'</td>'
+      +'<td></td><td class="center" style="color:#7a4100">⚠</td><td></td></tr>';
   });
   zoneGroups['absent'].forEach(function(t){
     var absEnt2 = state.absent[t];
     var absByUser2 = (absEnt2 && absEnt2.by) ? absEnt2.by : '';
-    staffRows += '<tr class="ra"><td class="num">'+ rowNum++ +'</td><td class="bold">'+ t +'</td>'
-      +'<td style="color:#9b1c1c">\u063a\u0627\u0626\u0628\u0629 \u0627\u0644\u064a\u0648\u0645</td>'
+    var dispName = isEn ? getDisplayName(t) : t;
+    staffRows += '<tr class="ra"><td class="num">'+ rowNum++ +'</td><td class="bold">'+ dispName +'</td>'
+      +'<td style="color:#9b1c1c">'+(isEn?'Absent today':'غائبة اليوم')+'</td>'
       +'<td style="color:#185FA5;font-weight:700">'+ absByUser2 +'</td>'
-      +'<td class="center" style="color:#9b1c1c">\u2014</td><td></td></tr>';
+      +'<td class="center" style="color:#9b1c1c">—</td><td></td></tr>';
   });
 
   // Build color legend HTML for report
@@ -1860,7 +2115,7 @@ function buildFullReportHTML(){
   var legendKeys = Object.keys(reportColorLegend);
   if(legendKeys.length > 0){
     colorLegendHtml = '<div style="margin:8px 0;padding:8px 12px;background:#f8f9fa;border-radius:6px;border:1px solid #e0e0e0;font-size:9pt">'
-      + '<span style="font-weight:700;color:#333">دليل الألوان (من سجّل الحضور): </span>';
+      + '<span style="font-weight:700;color:#333">'+(isEn?'Color guide (who registered): ':'دليل الألوان (من سجّل الحضور): ')+'</span>';
     legendKeys.forEach(function(u){
       var uc = getUserColor(u);
       if(uc){
@@ -1871,8 +2126,8 @@ function buildFullReportHTML(){
   }
   var staffStatusBg = s.missing===0 ? '#1a5c1a' : '#9b1c1c';
   var staffStatusTxt = s.missing===0
-    ? '\u2713 \u0627\u0643\u062a\u0645\u0644 \u0627\u0644\u0625\u062d\u0635\u0627\u0621 \u2014 \u062c\u0645\u064a\u0639 \u0627\u0644\u0645\u0648\u0638\u0641\u0627\u062a \u062a\u0645 \u0631\u0635\u062f\u0647\u0646'
-    : '\u26a0 \u0644\u0627 \u064a\u0632\u0627\u0644 ' + s.missing + ' \u0645\u0648\u0638\u0641\u0629 \u0644\u0645 \u064a\u064f\u0631\u0635\u062f\u0646';
+    ? (isEn ? '✓ Count complete — all staff recorded' : '✓ اكتمل الإحصاء — جميع الموظفات تم رصدهن')
+    : (isEn ? '⚠ ' + s.missing + ' staff not yet recorded' : '⚠ لا يزال ' + s.missing + ' موظفة لم يُرصدن');
 
   /* BUS DATA */
   var bp = busState.present ? Object.keys(busState.present).length : 0;
@@ -1967,17 +2222,20 @@ function buildFullReportHTML(){
     +'@media print{.page{page-break-after:always;min-height:0}.page:last-child{page-break-after:auto}}';
 
   function footer(n,total){
+    var creditTxt = isEn ? 'Concept & Design: Khadija Saif Alyahyaee' : 'فكرة وتصميم: خديجة سيف اليحيائي';
+    var schoolTxt = isEn ? 'Safety Team — Hessa bint Mohammed School' : 'فريق الأمن والسلامة — مدرسة حصة بنت محمد ح2';
     return '<div class="pf">'
-      +'<span>\u0641\u0631\u064a\u0642 \u0627\u0644\u0623\u0645\u0646 \u0648\u0627\u0644\u0633\u0644\u0627\u0645\u0629 \u2014 \u0645\u062f\u0631\u0633\u0629 \u062d\u0635\u0629 \u0628\u0646\u062a \u0645\u062d\u0645\u062f \u062d2 &nbsp;|\u00a0 '+dateStr+' &nbsp; '+timeStr+'</span>'
-      +'<span class="pf-credit">\u0641\u0643\u0631\u0629 \u0648\u062a\u0635\u0645\u064a\u0645: \u062e\u062f\u064a\u062c\u0629 \u0633\u064a\u0641 \u0627\u0644\u064a\u062d\u064a\u0627\u0626\u064a</span>'
-      +'<span>\u0635\u0641\u062d\u0629 '+n+' / '+total+'</span>'
+      +'<span>'+schoolTxt+' &nbsp;|&nbsp; '+dateStr+' &nbsp; '+timeStr+'</span>'
+      +'<span class="pf-credit">'+creditTxt+'</span>'
+      +'<span>'+(isEn?'Page ':'صفحة ')+n+' / '+total+'</span>'
       +'</div>';
   }
 
   function pageHeader(subtitle){
+    var schoolName = isEn ? '🏫 Hessa bint Mohammed School — Cycle 2' : '🏫 مدرسة حصة بنت محمد — حلقة ثانية';
     return '<div class="ph">'
       +'<div class="ph-left">'
-      +'<div class="school">&#127982; \u0645\u062f\u0631\u0633\u0629 \u062d\u0635\u0629 \u0628\u0646\u062a \u0645\u062d\u0645\u062f \u2014 \u062d\u0644\u0642\u0629 \u062b\u0627\u0646\u064a\u0629</div>'
+      +'<div class="school">'+schoolName+'</div>'
       +'<div class="sub">'+subtitle+'</div>'
       +'</div>'
       +'<div class="ph-right">'+dateStr+'<br>'+timeStr+'</div>'
@@ -1985,67 +2243,74 @@ function buildFullReportHTML(){
   }
 
   /* PAGE 1 — STAFF */
+  var p1Subtitle = isEn ? 'Evacuation Report — Staff & Assembly Zones' : 'تقرير الإخلاء الشامل — كشف الموظفات ومناطق التواجد';
   var page1 = '<div class="page">'
-    +pageHeader('\u062a\u0642\u0631\u064a\u0631 \u0627\u0644\u0625\u062e\u0644\u0627\u0621 \u0627\u0644\u0634\u0627\u0645\u0644 \u2014 \u0643\u0634\u0641 \u0627\u0644\u0645\u0648\u0638\u0641\u0627\u062a \u0648\u0645\u0646\u0627\u0637\u0642 \u0627\u0644\u062a\u0648\u0627\u062c\u062f')
+    +pageHeader(p1Subtitle)
     +'<div class="stat-row">'
-      +'<div class="sbox" style="border-color:#185FA5"><div class="sbox-n" style="color:#185FA5">'+s.total+'</div><div class="sbox-l">\u0627\u0644\u0625\u062c\u0645\u0627\u0644\u064a</div></div>'
-      +'<div class="sbox" style="border-color:#1a5c1a"><div class="sbox-n" style="color:#1a5c1a">'+s.present+'</div><div class="sbox-l">\u062a\u0645 \u0631\u0635\u062f\u0647\u0646</div></div>'
-      +'<div class="sbox" style="border-color:#7a4100"><div class="sbox-n" style="color:#7a4100">'+s.missing+'</div><div class="sbox-l">\u0644\u0645 \u064a\u064f\u0631\u0635\u062f\u0646</div></div>'
-      +'<div class="sbox" style="border-color:#9b1c1c"><div class="sbox-n" style="color:#9b1c1c">'+s.absent+'</div><div class="sbox-l">\u063a\u0627\u0626\u0628\u0627\u062a</div></div>'
+      +'<div class="sbox" style="border-color:#185FA5"><div class="sbox-n" style="color:#185FA5">'+s.total+'</div><div class="sbox-l">'+(isEn?'Total':'الإجمالي')+'</div></div>'
+      +'<div class="sbox" style="border-color:#1a5c1a"><div class="sbox-n" style="color:#1a5c1a">'+s.present+'</div><div class="sbox-l">'+(isEn?'Recorded':'تم رصدهن')+'</div></div>'
+      +'<div class="sbox" style="border-color:#7a4100"><div class="sbox-n" style="color:#7a4100">'+s.missing+'</div><div class="sbox-l">'+(isEn?'Not recorded':'لم يُرصدن')+'</div></div>'
+      +'<div class="sbox" style="border-color:#9b1c1c"><div class="sbox-n" style="color:#9b1c1c">'+s.absent+'</div><div class="sbox-l">'+(isEn?'Absent':'غائبات')+'</div></div>'
+      +'<div class="sbox" style="border-color:#0C447C;background:#E6F1FB"><div class="sbox-n" style="color:#0C447C">'+visitorsCount+'</div><div class="sbox-l" style="color:#0C447C;font-weight:700">'+(isEn?'👥 Visitors':'👥 الزوار')+'</div></div>'
     +'</div>'
     +'<div class="banner" style="background:'+staffStatusBg+'">'+staffStatusTxt+'</div>'
-    +'<div class="sh" style="background:#185FA5">&#128119; \u0623\u0648\u0644\u0627\u064b: \u0643\u0634\u0641 \u0627\u0644\u0645\u0648\u0638\u0641\u0627\u062a \u0648\u0645\u0646\u0627\u0637\u0642 \u0627\u0644\u062a\u0648\u0627\u062c\u062f</div>'
+    +'<div class="sh" style="background:#185FA5">👮 '+(isEn?'First: Staff & Assembly Zones':'أولاً: كشف الموظفات ومناطق التواجد')+'</div>'
     +'<table><thead><tr>'
       +'<th style="background:#185FA5;width:22px;text-align:center">#</th>'
-      +'<th style="background:#185FA5">\u0627\u0633\u0645 \u0627\u0644\u0645\u0648\u0638\u0641\u0629</th>'
-      +'<th style="background:#185FA5">\u0645\u0646\u0637\u0642\u0629 \u0627\u0644\u062a\u0648\u0627\u062c\u062f</th>'
-      +'<th style="background:#185FA5;text-align:center">\u0627\u0644\u062d\u0627\u0644\u0629</th>'
+      +'<th style="background:#185FA5">'+(isEn?'Staff Name':'اسم الموظفة')+'</th>'
+      +'<th style="background:#185FA5">'+(isEn?'Assembly Zone':'منطقة التواجد')+'</th>'
+      +'<th style="background:#185FA5;text-align:center">'+(isEn?'Status':'الحالة')+'</th>'
     +'</tr></thead><tbody>'+staffRows+'</tbody></table>'
     +footer(1,3)
     +'</div>';
 
   /* PAGE 2 — BUS */
+  var p2Subtitle = isEn ? 'Evacuation Report — Bus Supervisors' : 'تقرير الإخلاء الشامل — كشف مشرفات الباص';
   var page2 = '<div class="page">'
-    +pageHeader('\u062a\u0642\u0631\u064a\u0631 \u0627\u0644\u0625\u062e\u0644\u0627\u0621 \u0627\u0644\u0634\u0627\u0645\u0644 \u2014 \u0643\u0634\u0641 \u0645\u0634\u0631\u0641\u0627\u062a \u0627\u0644\u0628\u0627\u0635')
+    +pageHeader(p2Subtitle)
     +'<div class="stat-row">'
-      +'<div class="sbox" style="border-color:#854F0B"><div class="sbox-n" style="color:#854F0B">'+BUS_SUPERVISORS.length+'</div><div class="sbox-l">\u0627\u0644\u0625\u062c\u0645\u0627\u0644\u064a</div></div>'
-      +'<div class="sbox" style="border-color:#1a5c1a"><div class="sbox-n" style="color:#1a5c1a">'+bp+'</div><div class="sbox-l">\u062d\u0627\u0636\u0631\u0627\u062a</div></div>'
-      +'<div class="sbox" style="border-color:#9b1c1c"><div class="sbox-n" style="color:#9b1c1c">'+ba+'</div><div class="sbox-l">\u063a\u0627\u0626\u0628\u0627\u062a</div></div>'
+      +'<div class="sbox" style="border-color:#854F0B"><div class="sbox-n" style="color:#854F0B">'+BUS_SUPERVISORS.length+'</div><div class="sbox-l">'+(isEn?'Total':'الإجمالي')+'</div></div>'
+      +'<div class="sbox" style="border-color:#1a5c1a"><div class="sbox-n" style="color:#1a5c1a">'+bp+'</div><div class="sbox-l">'+(isEn?'Present':'حاضرات')+'</div></div>'
+      +'<div class="sbox" style="border-color:#9b1c1c"><div class="sbox-n" style="color:#9b1c1c">'+ba+'</div><div class="sbox-l">'+(isEn?'Absent':'غائبات')+'</div></div>'
     +'</div>'
     +'<div class="banner" style="background:'+(ba===0?'#1a5c1a':'#9b1c1c')+'">'
-      +(ba===0?'\u2713 \u062c\u0645\u064a\u0639 \u0645\u0634\u0631\u0641\u0627\u062a \u0627\u0644\u0628\u0627\u0635 \u062d\u0627\u0636\u0631\u0627\u062a':'\u26a0 '+ba+' \u0645\u0634\u0631\u0641\u0629 \u0628\u0627\u0635 \u063a\u0627\u0626\u0628\u0629')
+      +(ba===0?(isEn?'✓ All bus supervisors present':'✓ جميع مشرفات الباص حاضرات'):(isEn?'⚠ '+ba+' bus supervisor(s) absent':'⚠ '+ba+' مشرفة باص غائبة'))
     +'</div>'
-    +'<div class="sh" style="background:#854F0B">&#128652; \u062b\u0627\u0646\u064a\u0627\u064b: \u0643\u0634\u0641 \u0645\u0634\u0631\u0641\u0627\u062a \u0627\u0644\u0628\u0627\u0635</div>'
+    +'<div class="sh" style="background:#854F0B">🚌 '+(isEn?'Second: Bus Supervisors':'ثانياً: كشف مشرفات الباص')+'</div>'
     +'<table><thead><tr>'
       +'<th style="background:#854F0B;width:22px;text-align:center">#</th>'
-      +'<th style="background:#854F0B">\u0627\u0633\u0645 \u0627\u0644\u0645\u0634\u0631\u0641\u0629</th>'
-      +'<th style="background:#854F0B;text-align:center">\u0627\u0644\u062d\u0627\u0644\u0629</th>'
+      +'<th style="background:#854F0B">'+(isEn?'Supervisor Name':'اسم المشرفة')+'</th>'
+      +'<th style="background:#854F0B;text-align:center">'+(isEn?'Status':'الحالة')+'</th>'
     +'</tr></thead><tbody>'+busRows+'</tbody></table>'
     +footer(2,3)
     +'</div>';
 
   /* PAGE 3 — STUDENTS */
+  var p3Subtitle = isEn ? 'Evacuation Report — Student Count by Class' : 'تقرير الإخلاء الشامل — إحصاء الطالبات حسب الشعبة';
   var page3 = '<div class="page">'
-    +pageHeader('\u062a\u0642\u0631\u064a\u0631 \u0627\u0644\u0625\u062e\u0644\u0627\u0621 \u0627\u0644\u0634\u0627\u0645\u0644 \u2014 \u0625\u062d\u0635\u0627\u0621 \u0627\u0644\u0637\u0627\u0644\u0628\u0627\u062a \u062d\u0633\u0628 \u0627\u0644\u0634\u0639\u0628\u0629')
+    +pageHeader(p3Subtitle)
     +'<div class="stat-row">'
-      +'<div class="sbox" style="border-color:#5B21B6"><div class="sbox-n" style="color:#5B21B6">'+totalStudentsAll+'</div><div class="sbox-l">\u0625\u062c\u0645\u0627\u0644\u064a \u0627\u0644\u0637\u0627\u0644\u0628\u0627\u062a</div></div>'
-      +'<div class="sbox" style="border-color:#1a5c1a"><div class="sbox-n" style="color:#1a5c1a">'+totalPresAll+'</div><div class="sbox-l">\u062d\u0627\u0636\u0631\u0627\u062a</div></div>'
-      +'<div class="sbox" style="border-color:#9b1c1c"><div class="sbox-n" style="color:#9b1c1c">'+totalAbsAll+'</div><div class="sbox-l">\u063a\u0627\u0626\u0628\u0627\u062a</div></div>'
-      +'<div class="sbox" style="border-color:#555"><div class="sbox-n" style="color:#333">'+classDoneCount+'/'+classCount+'</div><div class="sbox-l">\u0634\u0639\u0628 \u0645\u0643\u062a\u0645\u0644\u0629</div></div>'
+      +'<div class="sbox" style="border-color:#5B21B6"><div class="sbox-n" style="color:#5B21B6">'+totalStudentsAll+'</div><div class="sbox-l">'+(isEn?'Total Students':'إجمالي الطالبات')+'</div></div>'
+      +'<div class="sbox" style="border-color:#1a5c1a"><div class="sbox-n" style="color:#1a5c1a">'+totalPresAll+'</div><div class="sbox-l">'+(isEn?'Present':'حاضرات')+'</div></div>'
+      +'<div class="sbox" style="border-color:#9b1c1c"><div class="sbox-n" style="color:#9b1c1c">'+totalAbsAll+'</div><div class="sbox-l">'+(isEn?'Absent':'غائبات')+'</div></div>'
+      +'<div class="sbox" style="border-color:#555"><div class="sbox-n" style="color:#333">'+classDoneCount+'/'+classCount+'</div><div class="sbox-l">'+(isEn?'Classes Done':'شعب مكتملة')+'</div></div>'
     +'</div>'
-    +'<div class="sh" style="background:#5B21B6">&#127979; \u062b\u0627\u0644\u062b\u0627\u064b: \u0625\u062d\u0635\u0627\u0621 \u0627\u0644\u0637\u0627\u0644\u0628\u0627\u062a \u062d\u0633\u0628 \u0627\u0644\u0634\u0639\u0628\u0629</div>'
+    +'<div class="sh" style="background:#5B21B6">🎓 '+(isEn?'Third: Student Count by Class':'ثالثاً: إحصاء الطالبات حسب الشعبة')+'</div>'
     +'<table><thead><tr>'
-      +'<th style="background:#5B21B6;text-align:center">\u0627\u0644\u0634\u0639\u0628\u0629</th>'
-      +'<th style="background:#5B21B6;text-align:center">\u0627\u0644\u0625\u062c\u0645\u0627\u0644\u064a</th>'
-      +'<th style="background:#5B21B6;text-align:center">\u062d\u0627\u0636\u0631\u0627\u062a</th>'
-      +'<th style="background:#5B21B6;text-align:center">\u063a\u0627\u0626\u0628\u0627\u062a</th>'
-      +'<th style="background:#5B21B6;text-align:center">\u0627\u0644\u062d\u0627\u0644\u0629</th>'
+      +'<th style="background:#5B21B6;text-align:center">'+(isEn?'Class':'الشعبة')+'</th>'
+      +'<th style="background:#5B21B6;text-align:center">'+(isEn?'Total':'الإجمالي')+'</th>'
+      +'<th style="background:#5B21B6;text-align:center">'+(isEn?'Present':'حاضرات')+'</th>'
+      +'<th style="background:#5B21B6;text-align:center">'+(isEn?'Absent':'غائبات')+'</th>'
+      +'<th style="background:#5B21B6;text-align:center">'+(isEn?'Status':'الحالة')+'</th>'
     +'</tr></thead><tbody>'+studentTableRows+'</tbody></table>'
     +footer(3,3)
     +'</div>';
 
-  return '<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8">'
-    +'<title>\u062a\u0642\u0631\u064a\u0631 \u0625\u062e\u0644\u0627\u0621 - \u0645\u062f\u0631\u0633\u0629 \u062d\u0635\u0629 \u0628\u0646\u062a \u0645\u062d\u0645\u062f</title>'
+  var reportLang = isEn ? 'en' : 'ar';
+  var reportDir = isEn ? 'ltr' : 'rtl';
+  var reportTitle = isEn ? 'Evacuation Report - Hessa bint Mohammed School' : 'تقرير إخلاء - مدرسة حصة بنت محمد';
+  return '<!DOCTYPE html><html dir="'+reportDir+'" lang="'+reportLang+'"><head><meta charset="UTF-8">'
+    +'<title>'+reportTitle+'</title>'
     +'<style>'+CSS+'</style>'
     +'</head><body>'
     +page1+page2+page3
@@ -2053,40 +2318,60 @@ function buildFullReportHTML(){
 }
 
 function downloadPdfReport(){
+  if(!currentUser){ showLoginModal(); return; }
+
   var now = new Date();
-  // Build filename: تقرير-اخلاء-YYYY-MM-DD-HH-MM.pdf
   var yyyy = now.getFullYear();
-  var mm = String(now.getMonth()+1).padStart(2,'0');
-  var dd = String(now.getDate()).padStart(2,'0');
-  var hh = String(now.getHours()).padStart(2,'0');
-  var min = String(now.getMinutes()).padStart(2,'0');
-  var filename = 'تقرير-اخلاء-' + yyyy + '-' + mm + '-' + dd + '_' + hh + '-' + min;
+  var mm   = String(now.getMonth()+1).padStart(2,'0');
+  var dd   = String(now.getDate()).padStart(2,'0');
+  var hh   = String(now.getHours()).padStart(2,'0');
+  var min  = String(now.getMinutes()).padStart(2,'0');
+  var filename = 'evacuation-report-' + yyyy + '-' + mm + '-' + dd + '_' + hh + '-' + min;
 
   var html = buildFullReportHTML();
 
-  // Open in new window and trigger print-to-PDF
-  var win = window.open('', '_blank', 'width=900,height=700');
-  if(!win){
-    // Fallback: download as HTML if popup blocked
-    var blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  // ── Method 1: Blob URL → new tab (most reliable) ──────────────────────────
+  try {
+    var blob = new Blob([html], {type: 'text/html;charset=utf-8'});
+    var blobUrl = URL.createObjectURL(blob);
+
+    var win = window.open(blobUrl, '_blank');
+    if(win){
+      // Revoke URL after a delay so the window has time to load
+      setTimeout(function(){ URL.revokeObjectURL(blobUrl); }, 30000);
+      // Trigger print after content loads
+      win.addEventListener('load', function(){
+        setTimeout(function(){
+          try{ win.print(); } catch(e){}
+        }, 600);
+      });
+      // Fallback print trigger in case load already fired
+      setTimeout(function(){
+        try{
+          if(win && !win.closed){ win.focus(); win.print(); }
+        } catch(e){}
+      }, 1200);
+      return;
+    }
+    URL.revokeObjectURL(blobUrl);
+  } catch(e){}
+
+  // ── Method 2: Direct download as HTML file ────────────────────────────────
+  try {
+    var blob2 = new Blob([html], {type: 'text/html;charset=utf-8'});
     var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    a.href = URL.createObjectURL(blob2);
     a.download = filename + '.html';
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(a.href);
-    alert('تم تنزيل التقرير كملف HTML. لحفظه كـ PDF: افتح الملف في المتصفح ثم اختر طباعة ← حفظ كـ PDF');
-    return;
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 2000);
+    var isEn = currentLang === 'en';
+    alert(isEn
+      ? 'Report downloaded as HTML. To save as PDF: open the file in your browser → Print → Save as PDF'
+      : 'تم تنزيل التقرير كملف HTML. لحفظه PDF: افتح الملف في المتصفح ← طباعة ← حفظ كـ PDF');
+  } catch(e){
+    alert('حدث خطأ أثناء إنشاء التقرير. يرجى المحاولة مرة أخرى.');
   }
-  win.document.write(html);
-  win.document.close();
-  win.document.title = filename;
-  // Auto-trigger print dialog for "Save as PDF"
-  win.onload = function(){
-    setTimeout(function(){
-      win.focus();
-      win.print();
-    }, 400);
-  };
 }
 
 function printFullReport(){
