@@ -303,26 +303,35 @@ function addBackupEmployee(){
   if(!inp) return;
   var name = inp.value.trim();
   if(!name){ inp.focus(); return; }
+
+  // Check not already in backup list or main staff
   if(_backupEmployees.indexOf(name) >= 0){
-    alert('هذه الموظفة موجودة بالفعل في القائمة');
+    alert(currentLang==='en' ? 'This staff member is already in the list' : 'هذه الموظفة موجودة بالفعل في القائمة');
     return;
   }
-  // Add to backup list and to TEACHERS
-  _backupEmployees.push(name);
-  if(TEACHERS.indexOf(name) < 0){
-    TEACHERS.push(name);
+  var alreadyInMain = STAFF_BILINGUAL.some(function(p){ return p[0]===name || p[1]===name; });
+  if(alreadyInMain){
+    alert(currentLang==='en' ? 'This name already exists in the main staff list' : 'هذا الاسم موجود بالفعل في قائمة الموظفات الأساسية');
+    return;
   }
+
+  // Add to backup list
+  _backupEmployees.push(name);
+
+  // ── KEY FIX: Add to STAFF_BILINGUAL so they appear in zone grid ──────────
+  STAFF_BILINGUAL.push([name, name]);   // same name for both languages
+  if(TEACHERS.indexOf(name) < 0) TEACHERS.push(name);
+
   inp.value = '';
   renderBackupEmployees();
   renderStats();
+
+  // Re-render zone grid if a zone is open
+  if(selZone) renderZoneGrid(selZone, document.getElementById('zone-search') ? document.getElementById('zone-search').value : '');
+
   // Update absent selector
-  var sel = document.getElementById('abssel');
-  if(sel){
-    var opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = name;
-    sel.appendChild(opt);
-  }
+  renderAbsentView();
+
   // Save to Firebase
   if(syncEnabled && db && currentUser){
     db.ref('hessa_school/backup_employees').set({
@@ -338,18 +347,24 @@ function removeBackupEmployee(name){
   if(!currentUser){ showLoginModal(); return; }
   var idx = _backupEmployees.indexOf(name);
   if(idx >= 0) _backupEmployees.splice(idx, 1);
-  // Remove from TEACHERS
+
+  // ── KEY FIX: Remove from STAFF_BILINGUAL too ─────────────────────────────
+  var biIdx = STAFF_BILINGUAL.findIndex(function(p){ return p[0]===name || p[1]===name; });
+  if(biIdx >= 0) STAFF_BILINGUAL.splice(biIdx, 1);
+
+  // Remove from TEACHERS legacy array
   var ti = TEACHERS.indexOf(name);
   if(ti >= 0) TEACHERS.splice(ti, 1);
+
   renderBackupEmployees();
   renderStats();
-  // Remove from absent selector
-  var sel = document.getElementById('abssel');
-  if(sel){
-    for(var i=0; i<sel.options.length; i++){
-      if(sel.options[i].value === name){ sel.remove(i); break; }
-    }
-  }
+
+  // Re-render zone grid if open
+  if(selZone) renderZoneGrid(selZone, document.getElementById('zone-search') ? document.getElementById('zone-search').value : '');
+
+  // Update absent selector
+  renderAbsentView();
+
   // Save to Firebase
   if(syncEnabled && db && currentUser){
     db.ref('hessa_school/backup_employees').set({
@@ -382,6 +397,9 @@ function loadBackupEmployees(){
         list.forEach(function(name){
           if(_backupEmployees.indexOf(name) < 0){
             _backupEmployees.push(name);
+            // Add to STAFF_BILINGUAL so they appear in zone grid
+            var alreadyIn = STAFF_BILINGUAL.some(function(p){ return p[0]===name||p[1]===name; });
+            if(!alreadyIn) STAFF_BILINGUAL.push([name, name]);
             if(TEACHERS.indexOf(name) < 0) TEACHERS.push(name);
           }
         });
@@ -800,17 +818,13 @@ input[type=text]{border:1px solid #ccc;border-radius:8px;padding:7px 10px;font-s
       <option value="">-- اختري اسمك من القائمة --</option>
       <optgroup label="رئيسات الأقسام / المسؤولات">
         <option>موزة عمر سالم العرياني</option>
-        <option>مها جبر</option>
-        <option> آمنة الأحبابي</option>
+        <option>مها جبر / آمنة الأحبابي</option>
         <option>يمنة محمد حربي العامري</option>
         <option>بخيتة ضاحي الكعبي</option>
         <option>ليلى سالم الغيثي</option>
         <option>اليازية سليم الدرعي</option>
         <option>أمنة سعيد غالب</option>
-        <option>نفلة غزاي العتيبي</option>
-<option>ميثة راشد اليحيائي</option>
-<option>فاطمة الساعدي</option>
-<option>Angalica</option>
+        <option>نقلة غزاي العتيبي</option>
       </optgroup>
       <optgroup label="الإدارة والأمن والسلامة">
         <option>المديرة</option>
@@ -873,63 +887,64 @@ const ZONES = [
 // Each entry: [Arabic name, English name]
 // ════════════════════════════════════════
 var STAFF_BILINGUAL = [
-  ['الفراء أحمد الظاهري','Alfarra Ahmed Al Dhaheri'],
+  ['الفراء أحمد محمد الظاهري','Alfarra Ahmed Al Dhaheri'],
   ['فاطمة فاضل الساعدي','Fatima Fadel Al Saedi'],
-  ['يمنة محمد العامري','YAMNA MOHAMMED ALAMERI'],
-  ['حصة سالم العلوي','HESSA SALEM ALALAWI'],
-  ['أمل سالم الكعبي','Amal Salem Alkaabi'],
-  ['موزة سيف الشامسي','Mouza Ali Al Shamisi'],
-  ['ميثاء راشد اليحيائي','Maitha Rashed Alyahyaee'],
+  ['يمنة محمد حربي العامري','YAMNA MOHAMMED ALAMERI'],
+  ['حصة سالم محمد العلوي','HESSA SALEM ALALAWI'],
+  ['أمل سالم سعيد الكعبي','Amal Salem Alkaabi'],
+  ['موزة سيف محمد الشامسي','Mouza Ali Al Shamisi'],
+  ['ميثاء راشد حميد اليحيائي','Maitha Rashed Alyahyaee'],
   ['مريم عبد الله الشامسي','Mariam Hamdan Alrayssi'],
-  ['نفله غزاي العتيبي','Nafla Ghazay Alateibi'],
+  ['نقلة غزاي العتيبي','Nafla Ghazay Alateibi'],
   ['أمنة حسين الأحبابي','AMNA HUSAIN JARWAN ABED'],
-  ['فاطمة سالم الشامسي','FATIMA SALEM ALSHAMSI'],
+  ['فاطمة سالم خميس الشامسي','FATIMA SALEM ALSHAMSI'],
   ['ليلى سالم الغيثي','LAILA SALEM ALGHAITHI'],
   ['حمدة علي الحدادي','Hamda Ali Alhaddadi'],
   ['موزة علي الشامسي','Mouza Ali Al Shamisi'],
   ['أمنة سعيد غالب','AMNA SAEED GHALEB'],
   ['اليازية سليم الدرعي','ALYZYA SULAIYAM ALDEREI'],
-  ['جميلة سرور الشامسي','Jamila Surour Alshamsi'],
-  ['مها محمد الشامسي','MAHA HAMAD ALSHAMSI'],
+  ['جميلة سرور مشعان الشامسي','Jamila Surour Alshamsi'],
+  ['مها محمد سالم الشامسي','MAHA HAMAD ALSHAMSI'],
   ['صبحاء محمد علي','Sabha Mohammed Alblooshi'],
   ['أمنة علي الكندي','Amna Ali Alkindi'],
-  ['فاطمة خاطر الشامسي','Fatima Khater Alshamsi'],
+  ['فاطمة خاطر حميد الشامسي','Fatima Khater Alshamsi'],
   ['شمة علي راشد الغيثي','Shamma Ali Al Ghaiti'],
-  ['لطيفة علي الشامسي','Latifa Ali Alshamsi'],
-  ['نورة أحمد المعمري','Noura Almememari'],
-  ['فاطمة راشد الكندي','FATIMA RASHED ALKINDI'],
-  ['شيخة راشد الشامسي','Shaikha Rashed Alshamsi'],
+  ['لطيفة علي حمد الشامسي','Latifa Ali Alshamsi'],
+  ['نورة أحمد سالم المعمري','Noura Almememari'],
+  ['فاطمة راشد سويدان الكندي','FATIMA RASHED ALKINDI'],
+  ['شيخة راشد سعيد الشامسي','Shaikha Rashed Alshamsi'],
   ['شيخة علي الشامسي','Shaikha Ali Alshamsi'],
-  ['فاطمة رحمة الشامسي','FATIMA RHAMA ALSHAMSI'],
-  ['سهير علي المعمري','Suhair Ali Al Maamari'],
+  ['فاطمة راشد رحمة الشامسي','FATIMA RHAMA ALSHAMSI'],
+  ['سهير علي محمد المعمري','Suhair Ali Al Maamari'],
   ['Huang Duo Duo','DUODUO HUANG'],
-  ['عزة خميس الكعبي','Azza Khamis Al Kaabi'],
-  ['مريم حمدان الريسي','Mariam Hamdan Alrayssi'],
-  ['عائشة سعيد الشامسي','Aysha Saeed Alshamsi'],
-  ['فاطمة محمد بامخرمة','Fatema Mohamed Bamakhrama'],
-  ['أمنة سعيد الكعبي','AMNA SAEED ALKAABI'],
-  ['شيخة سعيد الشامسي','Shaikha Saeed Alshamsi'],
-  ['منى علي الشامسي','Muna Ali Al Shamsi'],
+  ['عزة خميس سيف الكعبي','Azza Khamis Al Kaabi'],
+  ['مريم حمدان سيف الريسي','Mariam Hamdan Alrayssi'],
+  ['عائشة سعيد علي الشامسي','Aysha Saeed Alshamsi'],
+  ['فاطمة محمد أحمد بامخرمة','Fatema Mohamed Bamakhrama'],
+  ['أمنة سعيد سلطان الكعبي','AMNA SAEED ALKAABI'],
+  ['شيخة سعيد علي الشامسي','Shaikha Saeed Alshamsi'],
+  ['منى علي سالم الشامسي','Muna Ali Al Shamsi'],
   ['أمينة سالم الزعابي','AMINA SALEM ALZAABI'],
   ['نعيمة خميس سعيد','NAEEMA KHAMIS ALSHAMSI'],
-  ['مهرة سويعد الدرعي','MAHRA SUWIAID ALDEREI'],
+  ['مهرة سويعد مسعود الدرعي','MAHRA SUWIAID ALDEREI'],
   ['لطيفة طهميمة البلوشي','Latifa Tahmima Al Blooshi'],
-  ['دلال علي الساعدي','Dalal Ali Al Saedi'],
+  ['دلال علي محمد الساعدي','Dalal Ali Al Saedi'],
   ['نورة سعيد عبد الله الشامسي','NOURA SAEED ALSHAMSI'],
   ['اليازية بطي الشامسي','ALYAZIA BUTI ALSHAMSI'],
   ['فيانا سالجيث','VEENA SANJITH NARAYAN'],
-  ['طيبة عوض بالخيزل','TAIBA AWADH BAQAHAIZAL'],
-  ['سارة محمد  القحطاني','Sara Mohammed  Alqahtani'],
-  ['غنية أحمد الدرعي','GHANEYA AHMED ALDEREI'],
+  ['طيبة عوض محمد عيد بالخيزل','TAIBA AWADH BAQAHAIZAL'],
+  ['سارة محمد ناصر شعلي القحطاني','Sara Mohammed Nasser Almashali Alqahtani'],
+  ['غنية أحمد محمد الدرعي','GHANEYA AHMED ALDEREI'],
   ['خديجة سيف اليحيائي','KHADIJA SAIF ALYAHYAEE'],
   ['حنان سالم الشامسي','Hanaan Salem Alshamsi'],
   ['بخيتة ضاحي الكعبي','Bakhita Dahi Alkaabi'],
   ['العنود عبد الرحمن البلوشي','Alanoud Abdulrahman Alblooshi'],
-  ['نورة محمد النيادي','Noura Mohammed Alniadi'],
-  ['فاطمة ناصر البلوشي','Fatima Nasser Alblooshi'],
-  ['موزة عمر العرياني','MOUZA OMAR AL ARYANI'],
-  ['فاطمة بنت الحلفاوي','Fatma Halfaoui'],
-  ['مها محمد  جبر','MAHA MOHAMED ALI GABR'],
+  ['نورة محمد خلفان النيادي','Noura Mohammed Alniadi'],
+  ['فاطمة ناصر محمد البلوشي','Fatima Nasser Alblooshi'],
+  ['موزة عمر سالم العرياني','MOUZA OMAR AL ARYANI'],
+  ['فاطمة بنت إبراهيم الحلفاوي','Fatma Halfaoui'],
+  ['مها محمد علي محمد جبر','MAHA MOHAMED ALI GABR'],
+  ['سارة جمال السروي','Sara Jamal Elsarawy'],
   ['Angélica Ferreira','Angelica Ferreira'],
   ['الممرضة عبير','Nurse Abeer']
 ];
@@ -1179,6 +1194,9 @@ function initFirebase(){
         data.list.forEach(function(name){
           if(_backupEmployees.indexOf(name) < 0){
             _backupEmployees.push(name);
+            // Add to STAFF_BILINGUAL so zone grid shows them
+            var alreadyIn = STAFF_BILINGUAL.some(function(p){ return p[0]===name||p[1]===name; });
+            if(!alreadyIn) STAFF_BILINGUAL.push([name, name]);
             if(TEACHERS.indexOf(name) < 0) TEACHERS.push(name);
           }
         });
@@ -1651,6 +1669,7 @@ function renderZoneGrid(zid, filterQ){
   grid.innerHTML = '';
   available.forEach(function(arName){
     var displayName = getDisplayName(arName);
+    var isBackup = _backupEmployees.indexOf(arName) >= 0;
     var entry = state.registered[arName];
     var rz = entry ? (typeof entry==='object' ? entry.zone : entry) : null;
     var rzone = rz ? ZONES.find(function(z){return z.id===rz;}) : null;
@@ -1662,7 +1681,8 @@ function renderZoneGrid(zid, filterQ){
       if(uc){
         span.style.cssText = 'background:'+uc.bg+';color:'+uc.text+';border:1.5px solid '+uc.border+';font-weight:700;';
       }
-      span.innerHTML = '\u2713 ' + displayName
+      var backupBadge = isBackup ? ' <span style="font-size:8px;background:#854F0B;color:#fff;border-radius:3px;padding:0 3px;margin-right:2px">احتياط</span>' : '';
+      span.innerHTML = '\u2713 ' + displayName + backupBadge
         + (regByUser ? ' <span style="font-size:9px;background:'+(uc?uc.badge:'#e0e0e0')+';color:'+(uc?uc.text:'#555')+';border-radius:3px;padding:0 4px;margin-right:2px">'+regByUser+'</span>' : '');
       span.style.cursor = 'pointer';
       span.setAttribute('data-name', arName);
@@ -1673,9 +1693,16 @@ function renderZoneGrid(zid, filterQ){
       span.className = 'tc other';
       span.title = rzone ? rzone.name : rz;
       span.textContent = displayName;
+      if(isBackup) span.style.borderStyle = 'dashed';
     } else {
       span.className = 'tc avail';
-      span.textContent = displayName;
+      if(isBackup){
+        // Backup employees get a warm amber style to distinguish them
+        span.style.cssText = 'background:#FFF3E0;border:1.5px dashed #E65100;color:#BF360C;';
+        span.innerHTML = displayName + ' <span style="font-size:8px;background:#E65100;color:#fff;border-radius:3px;padding:0 3px;vertical-align:middle">احتياط</span>';
+      } else {
+        span.textContent = displayName;
+      }
       span.setAttribute('data-name', arName);
       span.setAttribute('data-zid', zid);
       span.addEventListener('click', function(){
