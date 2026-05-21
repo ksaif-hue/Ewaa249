@@ -225,6 +225,9 @@ var studentsInitialized = false;
 // Debounce timer for students Firebase save
 var _studentSaveTimer = {};
 
+// Flag: true while applying Firebase data → prevents save-back loop
+var _applyingFromFirebase = false;
+
 function checkStudentClass(col){
   if(!col) return;
   var total = parseInt(col.getAttribute('data-total'));
@@ -251,10 +254,11 @@ function checkStudentClass(col){
     status.style.cssText = 'background:#f5f5f5;color:#aaa;border:1px solid #ddd;border-radius:6px;padding:3px 0;font-size:10px;font-weight:700;text-align:center;width:100%';
   }
   checkAllStudentsDone();
-  // Debounced Firebase save (500ms after last keystroke)
+  // ── Only save to Firebase when triggered by USER input, NOT by Firebase listener ──
+  if(_applyingFromFirebase) return;
   var colKey = col.getAttribute('data-grade') + '_' + col.getAttribute('data-sec');
   if(_studentSaveTimer[colKey]) clearTimeout(_studentSaveTimer[colKey]);
-  _studentSaveTimer[colKey] = setTimeout(function(){ saveStudentClass(col); }, 500);
+  _studentSaveTimer[colKey] = setTimeout(function(){ saveStudentClass(col); }, 800);
 }
 
 function checkAllStudentsDone(){
@@ -424,6 +428,93 @@ function saveVisitors(){
   try{ localStorage.setItem('hessa_visitors_v1', String(val)); }catch(e){}
 }
 
+// ════════════════════════════════════════
+// EVACUATION TIMER
+// ════════════════════════════════════════
+var _timerStart   = null;
+var _timerElapsed = 0;
+var _timerInterval= null;
+var _timerRunning = false;
+
+function timerStart(){
+  if(_timerRunning) return;
+  if(!currentUser){ showLoginModal(); return; }
+  _timerRunning = true;
+  _timerStart = Date.now() - _timerElapsed;
+  _timerInterval = setInterval(_timerTick, 500);
+  var sb=document.getElementById('timer-start-btn'), eb=document.getElementById('timer-stop-btn');
+  if(sb){ sb.disabled=true; sb.style.background='#555'; sb.style.color='#aaa'; }
+  if(eb){ eb.disabled=false; eb.style.background='#E63946'; eb.style.color='#fff'; }
+  if(syncEnabled && db){
+    db.ref('hessa_school/timer').set({
+      startAt:_timerStart, running:true, stoppedAt:null,
+      startedBy:currentUser, at:Date.now()
+    }).catch(function(){});
+  }
+  try{ auditLog('timer_start', currentUser); }catch(e){}
+  _timerTick();
+}
+
+function timerStop(){
+  if(!_timerRunning) return;
+  clearInterval(_timerInterval); _timerRunning=false;
+  _timerElapsed = Date.now() - _timerStart;
+  var sb=document.getElementById('timer-start-btn'), eb=document.getElementById('timer-stop-btn');
+  if(sb){ sb.disabled=false; sb.style.background='#00A896'; sb.style.color='#fff'; }
+  if(eb){ eb.disabled=true; eb.style.background='#444'; eb.style.color='#888'; }
+  if(syncEnabled && db){
+    db.ref('hessa_school/timer').update({
+      running:false, stoppedAt:Date.now(),
+      elapsedMs:_timerElapsed, stoppedBy:currentUser
+    }).catch(function(){});
+  }
+  try{ auditLog('timer_stop', _timerFmt(_timerElapsed)); }catch(e){}
+  _timerTick();
+}
+
+function timerReset(){
+  clearInterval(_timerInterval);
+  _timerRunning=false; _timerStart=null; _timerElapsed=0;
+  var disp=document.getElementById('timer-display'), lbl=document.getElementById('timer-label');
+  if(disp){ disp.textContent='00:00'; disp.style.color='#F9C74F'; }
+  if(lbl) lbl.textContent = currentLang==='en' ? 'Evacuation duration' : 'مدة الإخلاء';
+  var sb=document.getElementById('timer-start-btn'), eb=document.getElementById('timer-stop-btn');
+  if(sb){ sb.disabled=false; sb.style.background='#00A896'; sb.style.color='#fff'; }
+  if(eb){ eb.disabled=true; eb.style.background='#444'; eb.style.color='#888'; }
+  if(syncEnabled && db){
+    db.ref('hessa_school/timer').set({startAt:null,running:false,stoppedAt:null,elapsedMs:0}).catch(function(){});
+  }
+}
+
+function _timerTick(){
+  var elapsed = _timerRunning ? (Date.now()-_timerStart) : _timerElapsed;
+  var disp=document.getElementById('timer-display'), lbl=document.getElementById('timer-label');
+  if(disp){
+    disp.textContent = _timerFmt(elapsed);
+    disp.style.color = _timerRunning ? '#FF6B6B' : (elapsed>0 ? '#6BCB77' : '#F9C74F');
+  }
+  if(lbl){
+    if(_timerRunning) lbl.textContent = (currentLang==='en'?'🔴 Evacuating...':'🔴 الإخلاء جارٍ...');
+    else if(elapsed>0) lbl.textContent = (currentLang==='en'?'✅ Total: ':'✅ المدة: ')+_timerFmt(elapsed);
+    else lbl.textContent = currentLang==='en'?'Evacuation duration':'مدة الإخلاء';
+  }
+}
+
+function _timerFmt(ms){
+  if(!ms||ms<0) return '00:00';
+  var s=Math.floor(ms/1000), m=Math.floor(s/60), sec=s%60;
+  return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');
+}
+
+function _timerGetSummary(isEn){
+  var elapsed = _timerElapsed || (_timerRunning&&_timerStart ? Date.now()-_timerStart : 0);
+  if(!elapsed) return isEn?'Not recorded':'لم يُسجَّل';
+  var s=Math.floor(elapsed/1000), m=Math.floor(s/60), sec=s%60;
+  return isEn
+    ? m+' min '+sec+' sec  ('+_timerFmt(elapsed)+')'
+    : m+' دقيقة و'+sec+' ثانية  ('+_timerFmt(elapsed)+')';
+}
+
 function initStudentsListeners(){
   // Initialize status display only (no event listeners - using oninput in HTML)
   if(studentsInitialized) return;
@@ -536,6 +627,32 @@ input[type=text]{border:1px solid #ccc;border-radius:8px;padding:7px 10px;font-s
       <span id="lbl-visitors" style="font-size:12px;color:#0C447C;font-weight:700">👥 عدد الزوار:</span>
       <input type="number" id="visitors-count" min="0" value="0" oninput="saveVisitors()" style="width:70px;padding:4px 8px;border:1.5px solid #85B7EB;border-radius:6px;font-size:14px;font-weight:700;text-align:center;color:#0C447C;background:#fff">
       <span id="lbl-visitor-unit" style="font-size:11px;color:#888">زائر</span>
+    </div>
+  </div>
+  <!-- Timer Row -->
+  <div class="stat" style="grid-column:span 4;background:#0D1B2A;border:1px solid #1B2E45;padding:10px 12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:22px">⏱️</span>
+        <div>
+          <div id="timer-display" style="font-size:22px;font-weight:800;color:#F9C74F;font-variant-numeric:tabular-nums;letter-spacing:2px">00:00</div>
+          <div id="timer-label" style="font-size:9px;color:#8A9BB0;margin-top:1px">مدة الإخلاء</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:7px">
+        <button id="timer-start-btn" onclick="timerStart()"
+          style="padding:7px 14px;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;background:#00A896;color:#fff;transition:all .2s">
+          ▶ بدء
+        </button>
+        <button id="timer-stop-btn" onclick="timerStop()" disabled
+          style="padding:7px 14px;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;background:#444;color:#888;transition:all .2s">
+          ⏹ إنهاء
+        </button>
+        <button id="timer-reset-btn" onclick="timerReset()"
+          style="padding:7px 14px;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;background:#1B2E45;color:#8A9BB0;border:1px solid #2a4060;transition:all .2s">
+          ↺ إعادة
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -917,7 +1034,7 @@ var STAFF_BILINGUAL = [
   ['شمة الغيثي','Shamma Al Ghaiti'],
   ['لطيفة الشامسي','Latifa Alshamsi'],
   ['نورة المعمري','Noura Almememari'],
-  ['راشد الكندي','FATIMA ALKINDI'],
+  ['فاطمة الكندي','FATIMA ALKINDI'],
   ['شيخة راشد الشامسي','Shaikha Rashed Alshamsi'],
   ['شيخة علي الشامسي','Shaikha Ali Alshamsi'],
   ['فاطمة رحمة الشامسي','FATIMA RHAMA ALSHAMSI'],
@@ -1158,30 +1275,44 @@ function initFirebase(){
     var studRef = db.ref('hessa_school/students');
     studRef.on('value', function(snap){
       var data = snap.val() || {};
-      // Apply students data to DOM inputs
       if(data.classes){
-        Object.keys(data.classes).forEach(function(key){
-          var cls = data.classes[key];
-          var col = document.querySelector('.cls-col[data-grade="'+cls.grade+'"][data-sec="'+cls.sec+'"]');
-          if(col){
+        // Set flag BEFORE touching inputs → prevents save-back loop
+        _applyingFromFirebase = true;
+        try{
+          Object.keys(data.classes).forEach(function(key){
+            var cls = data.classes[key];
+            if(!cls) return;
+            var col = document.querySelector(
+              '.cls-col[data-grade="'+String(cls.grade)+'"][data-sec="'+String(cls.sec)+'"]'
+            );
+            if(!col) return;
             var absInp = col.querySelector('.abs-inp');
             var prsInp = col.querySelector('.prs-inp');
-            if(absInp && cls.absent !== undefined && document.activeElement !== absInp){
-              absInp.value = cls.absent !== null ? cls.absent : '';
+            // Only update if NOT currently focused by this user
+            if(absInp && document.activeElement !== absInp){
+              absInp.value = (cls.absent !== null && cls.absent !== undefined) ? cls.absent : '';
             }
-            if(prsInp && cls.present !== undefined && document.activeElement !== prsInp){
-              prsInp.value = cls.present !== null ? cls.present : '';
+            if(prsInp && document.activeElement !== prsInp){
+              prsInp.value = (cls.present !== null && cls.present !== undefined) ? cls.present : '';
             }
+            // Update status display (flag is set → no Firebase write triggered)
             checkStudentClass(col);
-          }
-        });
+          });
+        } finally {
+          // Always clear flag even if error occurs
+          _applyingFromFirebase = false;
+        }
+        checkAllStudentsDone();
       }
-      // Update students last-updated
+      // Update last-updated indicator
       if(data.lastUpdated){
         var el = document.getElementById('students-last-updated');
-        if(el) el.textContent = 'آخر تحديث: ' + (data.updatedBy||'') + ' — ' + fmtTime(data.lastUpdated);
+        if(el){
+          var who = data.updatedBy ? data.updatedBy + ' — ' : '';
+          el.textContent = '🔄 آخر تحديث: ' + who + fmtTime(data.lastUpdated);
+        }
       }
-    }, function(){});
+    }, function(err){ console.warn('Students listener error:', err); });
 
     // ── Visitors listener (real-time) ─────────────────────────────────────
     db.ref('hessa_school/visitors').on('value', function(snap){
@@ -1223,21 +1354,35 @@ function initFirebase(){
 // ════════════════════════════════════════
 function saveStudentClass(col){
   if(!syncEnabled || !db || !currentUser) return;
-  var grade = col.getAttribute('data-grade');
-  var sec   = col.getAttribute('data-sec');
+  if(_applyingFromFirebase) return;   // extra safety guard
+
+  var grade  = col.getAttribute('data-grade');
+  var sec    = col.getAttribute('data-sec');
   var absInp = col.querySelector('.abs-inp');
   var prsInp = col.querySelector('.prs-inp');
-  var absVal = absInp && absInp.value !== '' ? parseInt(absInp.value) : null;
-  var prsVal = prsInp && prsInp.value !== '' ? parseInt(prsInp.value) : null;
-  var key = 'G' + grade + '_' + sec;
-  db.ref('hessa_school/students/classes/' + key).set({
+  if(!absInp || !prsInp) return;
+
+  var absVal = absInp.value !== '' ? parseInt(absInp.value) : null;
+  var prsVal = prsInp.value !== '' ? parseInt(prsInp.value) : null;
+  var key    = 'G' + grade + '_' + sec;
+  var now    = Date.now();
+
+  // Atomic update: class data + metadata in one write
+  var updates = {};
+  updates['hessa_school/students/classes/' + key] = {
     grade: grade, sec: sec,
     absent: absVal, present: prsVal,
-    updatedBy: currentUser, at: Date.now()
-  }).catch(function(){});
-  db.ref('hessa_school/students').update({
-    lastUpdated: Date.now(), updatedBy: currentUser
-  }).catch(function(){});
+    updatedBy: currentUser, at: now
+  };
+  updates['hessa_school/students/lastUpdated'] = now;
+  updates['hessa_school/students/updatedBy']   = currentUser;
+
+  db.ref().update(updates).then(function(){
+    showSyncStatus('synced');
+  }).catch(function(e){
+    console.warn('saveStudentClass error:', e);
+    showSyncStatus('error');
+  });
 }
 
 function save(){
@@ -1980,6 +2125,8 @@ function confirmReset(){
     if(syncEnabled && db){
       db.ref('hessa_school/visitors').set({count:0, updatedBy:currentUser, at:Date.now()}).catch(function(){});
     }
+    // Reset timer
+    timerReset();
 
     if(syncEnabled && db){
       db.ref('hessa_school/evacuation').set({
@@ -2278,6 +2425,21 @@ function buildFullReportHTML(){
   var p1Subtitle = isEn ? 'Evacuation Report — Staff & Assembly Zones' : 'تقرير الإخلاء الشامل — كشف الموظفات ومناطق التواجد';
   var page1 = '<div class="page">'
     +pageHeader(p1Subtitle)
+    // ── Timer box ─────────────────────────────────────────────────
+    +'<div style="background:#0D1B2A;border-radius:8px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">'
+      +'<div style="display:flex;align-items:center;gap:12px">'
+        +'<span style="font-size:22px">⏱️</span>'
+        +'<div>'
+          +'<div style="font-size:26px;font-weight:800;color:#F9C74F;letter-spacing:3px;font-variant-numeric:tabular-nums">'+_timerFmt(_timerElapsed||(_timerRunning&&_timerStart?Date.now()-_timerStart:0))+'</div>'
+          +'<div style="font-size:10px;color:#8A9BB0;margin-top:1px">'+(isEn?'mm:ss — Evacuation duration':'دد:ثث — مدة الإخلاء')+'</div>'
+        +'</div>'
+      +'</div>'
+      +'<div style="text-align:'+(isEn?'left':'right')+'">'
+        +'<div style="font-size:13px;font-weight:700;color:#fff">'+(isEn?'⏱ Evacuation Timer':'⏱ مؤقت الإخلاء')+'</div>'
+        +'<div style="font-size:11px;color:#8A9BB0">'+(isEn?'Total duration: ':'المدة الإجمالية: ')+_timerGetSummary(isEn)+'</div>'
+      +'</div>'
+    +'</div>'
+    // ── Stats ────────────────────────────────────────────────────
     +'<div class="stat-row">'
       +'<div class="sbox" style="border-color:#185FA5"><div class="sbox-n" style="color:#185FA5">'+s.total+'</div><div class="sbox-l">'+(isEn?'Total':'الإجمالي')+'</div></div>'
       +'<div class="sbox" style="border-color:#1a5c1a"><div class="sbox-n" style="color:#1a5c1a">'+s.present+'</div><div class="sbox-l">'+(isEn?'Recorded':'تم رصدهن')+'</div></div>'
