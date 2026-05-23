@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -16,6 +18,7 @@
 <!-- Firebase SDK (compat v10) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script>
 // ════════════════════════════════════════
 // BUS SUPERVISORS MODULE
@@ -956,7 +959,10 @@ input[type=text]{border:1px solid #ccc;border-radius:8px;padding:7px 10px;font-s
       </optgroup>
     </select>
     <div id="login-or-label" style="font-size:11px;color:#aaa;margin-bottom:6px">أو أدخلي اسمك يدوياً:</div>
-    <input id="login-name-inp" type="text" placeholder="اكتبي اسمك هنا..." style="width:100%;padding:10px;border:1.5px solid #ccc;border-radius:8px;font-size:13px;margin-bottom:16px;direction:rtl;text-align:right">
+    <input id="login-name-inp" type="text" placeholder="اكتبي اسمك هنا..." style="width:100%;padding:10px;border:1.5px solid #ccc;border-radius:8px;font-size:13px;margin-bottom:10px;direction:rtl;text-align:right">
+    <div id="login-pass-label" style="font-size:11px;color:#555;margin-bottom:6px;text-align:right">🔒 كلمة السر:</div>
+    <input id="login-pass-inp" type="password" placeholder="أدخلي كلمة السر..." style="width:100%;padding:10px;border:1.5px solid #ccc;border-radius:8px;font-size:13px;margin-bottom:16px;direction:rtl;text-align:right" onkeydown="if(event.key==='Enter') doLogin()">
+    <div id="login-err" style="display:none;color:#A32D2D;font-size:12px;font-weight:700;margin-bottom:10px;background:#FCEBEB;border-radius:8px;padding:8px">❌ كلمة السر غير صحيحة</div>
     <button onclick="doLogin()" id="login-btn" style="width:100%;padding:12px;background:#185FA5;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">دخول ›</button>
     <div id="login-note" style="font-size:10px;color:#aaa;margin-top:12px">سيظهر اسمك مع كل إجراء تقومين به</div>
   </div>
@@ -1442,11 +1448,27 @@ function showLoginModal(){
   setTimeout(function(){ inp.focus(); }, 200);
 }
 
+// ── كلمة السر المطلوبة للدخول ────────────────────────────────────────────
+var APP_PASSWORD = 'H@249';
+
 function doLogin(){
   var sel = document.getElementById('login-supervisor-sel');
   var inp = document.getElementById('login-name-inp');
+  var passInp = document.getElementById('login-pass-inp');
+  var errEl = document.getElementById('login-err');
   var name = (sel && sel.value) ? sel.value : (inp ? inp.value.trim() : '');
   if(!name){ alert(UI[currentLang].loginAlert); return; }
+
+  // التحقق من كلمة السر
+  var pass = passInp ? passInp.value : '';
+  if(pass !== APP_PASSWORD){
+    if(errEl){ errEl.style.display='block'; }
+    if(passInp){ passInp.value=''; passInp.focus(); passInp.style.borderColor='#A32D2D'; }
+    return;
+  }
+  if(errEl) errEl.style.display='none';
+  if(passInp) passInp.style.borderColor='#ccc';
+
   currentUser = name;
   sessionStorage.setItem('hessa_user', name);
   sessionStorage.setItem('hessa_lang', currentLang);
@@ -1456,7 +1478,19 @@ function doLogin(){
   badgeEl.textContent = UI[currentLang].youLabel + name;
   badgeEl.style.cssText = 'display:inline-block;font-size:10px;border-radius:8px;padding:2px 8px;margin-top:3px;font-weight:700;'
     + (loginUc ? 'background:'+loginUc.bg+';color:'+loginUc.text+';border:1px solid '+loginUc.border+';' : 'background:#E6F1FB;color:#0C447C;border:1px solid #85B7EB;');
-  initFirebase();
+
+  // تسجيل دخول مجهول في Firebase لتفعيل الحماية
+  try{
+    var app2;
+    try{ app2 = firebase.app(); }catch(e2){ app2 = firebase.initializeApp(FIREBASE_CONFIG); }
+    firebase.auth(app2).signInAnonymously().then(function(){
+      initFirebase();
+    }).catch(function(e){
+      // إذا فشل الـ Auth نكمل بدونه (وضع احتياطي)
+      initFirebase();
+    });
+  }catch(e){ initFirebase(); }
+
   load();
   loadBackupEmployees();
   applyUILanguage();
